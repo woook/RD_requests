@@ -582,7 +582,7 @@ def write_out_intermediate_excel(grouped_df_raw):
 
     Parameters
     ----------
-    grouped_df : pd.DataFrame
+    grouped_df_raw : pd.DataFrame
         pandas df with all info on each test
     """
     # Subset to remove file ID and run date columns
@@ -623,8 +623,14 @@ def write_out_final_excel(
     Parameters
     ----------
     dataframe_1 : pd.DataFrame
-        pandas df to write out
-    dataframe_2 : str
+        first pandas df to write out
+    dataframe_2: pd.DataFrame
+        second pandas df to write out
+    sheet_1 : str
+        name of first sheet
+    sheet_2 : str
+        name of second sheet
+    outfile_name: str
         name of Excel file to write out
     """
     writer = pd.ExcelWriter(outfile_name)
