@@ -168,6 +168,7 @@ def get_reports(projects_002):
             )
             all_reports.append({
                 'run': project['describe']['name'],
+                'project_id': project['id'],
                 'sample': sample_name,
                 'snv_file_id': snv_report['id'],
                 'type': 'SNV',
@@ -182,6 +183,7 @@ def get_reports(projects_002):
             )
             all_reports.append({
                 'run': project['describe']['name'],
+                'project_id': project['id'],
                 'sample': sample_name,
                 'cnv_file_id': cnv_report['id'],
                 'type': 'CNV',
@@ -223,18 +225,19 @@ def get_details_in_parallel(list_of_files) -> list:
             clinical indication
         """
         file_type = file_dict['type']
+        project_id = file_dict['project_id']
 
         # If SNV, the variants are in the DX report details under 'included'
-        if file_type =='SNV':
+        if file_type == 'SNV':
             file_id = file_dict['snv_file_id']
-            details = dx.DXFile(file_id).get_details()
+            details = dx.DXFile(dxid=file_id, project=project_id).get_details()
             included_variants = details.get('included')
             file_dict['snv_included_variants'] = included_variants
 
         # If CNV, the variants are in the DX report details under 'variants'
         elif file_type == 'CNV':
             file_id = file_dict['cnv_file_id']
-            details = dx.DXFile(file_id).get_details()
+            details = dx.DXFile(dxid=file_id, project=project_id).get_details()
             included_variants = details.get('variants')
             file_dict['cnv_included_variants'] = included_variants
 
