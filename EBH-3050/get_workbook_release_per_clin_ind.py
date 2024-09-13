@@ -25,7 +25,7 @@ def parse_args() -> argparse.Namespace:
         required=True,
         type=str,
         help=(
-            "Date to filter projects created after in %y%m%d format e.g. "
+            "Date to filter projects created after in %Y-%M-%d format e.g. "
             "2024-04-09"
         )
     )
@@ -36,7 +36,7 @@ def parse_args() -> argparse.Namespace:
         required=True,
         type=str,
         help=(
-            "Date to filter projects created before in %y%m%d format e.g. "
+            "Date to filter projects created before in %Y-%M-%d format e.g. "
             "2024-09-04"
         )
     )
@@ -48,7 +48,7 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help=(
             "Date that change to the CNV release process was introduced (in "
-            "%y%m%d format) e.g. 2024-07-10"
+            "%Y-%M-%d format) e.g. 2024-07-10"
         )
     )
 
@@ -99,6 +99,8 @@ def find_dx_projects(start_date, end_date):
         created_after=start_date,
         created_before=end_date
     ))
+
+    print(f"Found {len(projects)} 002 projects\n")
 
     return projects
 
@@ -166,6 +168,7 @@ def get_reports(projects_002):
             )
             all_reports.append({
                 'run': project['describe']['name'],
+                'project_id': project['id'],
                 'sample': sample_name,
                 'snv_file_id': snv_report['id'],
                 'type': 'SNV',
@@ -180,6 +183,7 @@ def get_reports(projects_002):
             )
             all_reports.append({
                 'run': project['describe']['name'],
+                'project_id': project['id'],
                 'sample': sample_name,
                 'cnv_file_id': cnv_report['id'],
                 'type': 'CNV',
@@ -221,18 +225,19 @@ def get_details_in_parallel(list_of_files) -> list:
             clinical indication
         """
         file_type = file_dict['type']
+        project_id = file_dict['project_id']
 
         # If SNV, the variants are in the DX report details under 'included'
-        if file_type =='SNV':
+        if file_type == 'SNV':
             file_id = file_dict['snv_file_id']
-            details = dx.DXFile(file_id).get_details()
+            details = dx.DXFile(dxid=file_id, project=project_id).get_details()
             included_variants = details.get('included')
             file_dict['snv_included_variants'] = included_variants
 
         # If CNV, the variants are in the DX report details under 'variants'
         elif file_type == 'CNV':
             file_id = file_dict['cnv_file_id']
-            details = dx.DXFile(file_id).get_details()
+            details = dx.DXFile(dxid=file_id, project=project_id).get_details()
             included_variants = details.get('variants')
             file_dict['cnv_included_variants'] = included_variants
 
@@ -452,16 +457,6 @@ def group_by_report_release(grouped_df):
         by=['total_samples'], ascending=False, ignore_index=True
     )
 
-    # # Add in column with short R code
-    # sorted_any_workbook['R_code'] = sorted_any_workbook[
-    #     'clinical_indication'
-    # ].apply(lambda s:s.split('_')[0])
-
-    sorted_any_workbook = sorted_any_workbook[[
-        'clinical_indication', 'total_samples',
-        'no_workbook_released', 'workbook_released'
-    ]]
-
     return sorted_any_workbook
 
 
@@ -497,28 +492,112 @@ def group_by_any_variants(grouped_df):
         by=['total_samples'], ascending=False, ignore_index=True
     )
 
-    sorted_any_variants = sorted_any_variants[[
-        'clinical_indication', 'total_samples', 'no_variants', 'any_variants'
-    ]]
-
     return sorted_any_variants
 
 
-def write_out_intermediate_excel(grouped_df):
+def group_and_count_by_workbook_type_release(report_release_df):
+    """
+    Count how many had an SNV report released/not released and how many
+    had a CNV report released/not released per clinical indication
+
+    Parameters
+    ----------
+    report_release_df : pd.DataFrame
+        dataframe with columns 'SNV_report_released',
+        'CNV_report_released' and 'any_report_released' which are Yes or No
+
+    Returns
+    -------
+    sorted_grouped_by_each_release : pd.DataFrame
+        df with counts of each workbook released per clinical indication
+    """
+    # Group and count how many have 0 SNVs+CNVs and how many have >0 SNVs+CNVs
+    grouped_by_each_release = report_release_df.groupby('clinical_indication').agg(
+        total_samples=('sample', 'size'),
+        snv_released=('SNV_report_released', lambda x: (x == 'Yes').sum()),
+        snv_not_released=('SNV_report_released', lambda x: (x == 'No').sum()),
+        cnv_released=('CNV_report_released', lambda x: (x == 'Yes').sum()),
+        cnv_not_released=('CNV_report_released', lambda x: (x == 'No').sum()),
+    ).reset_index()
+
+    sorted_grouped_by_each_release = grouped_by_each_release.sort_values(
+        by=['total_samples'], ascending=False, ignore_index=True
+    )
+
+    return sorted_grouped_by_each_release
+
+
+def group_and_count_by_variant_existence_per_type(report_release_df):
+    """
+    Count how many had any SNVs and how many had any CNVs per clinical
+    indication
+
+    Parameters
+    ----------
+    report_release_df : pd.DataFrame
+        df with columns with number of variants per sample -
+        'snv_included_variants' and 'cnv_included_variants'
+
+    Returns
+    -------
+    sorted_grouped_by_variant_type : pd.DataFrame
+        df with counts of each variant type per clinical indication
+    """
+    no_snv_condition = (
+        (report_release_df['snv_included_variants'] == 0)
+        | (report_release_df['snv_included_variants'].isna())
+    )
+    no_cnv_condition = (
+        (report_release_df['cnv_included_variants'] == 0)
+        | (report_release_df['cnv_included_variants'].isna())
+    )
+
+    grouped_by_each_variant_type = report_release_df.groupby('clinical_indication').agg(
+        total_samples=('sample', 'size'),
+        no_snvs=(
+            'snv_included_variants',
+            lambda x: no_snv_condition[x.index].sum()
+        ),
+        has_snvs=(
+            'snv_included_variants',
+            lambda x: (~no_snv_condition)[x.index].sum()
+        ),
+        no_cnvs=(
+            'cnv_included_variants',
+            lambda x: no_cnv_condition[x.index].sum()
+        ),
+        has_cnvs=(
+            'cnv_included_variants',
+            lambda x: (~no_cnv_condition)[x.index].sum()
+        ),
+    ).reset_index()
+
+    sorted_grouped_by_variant_type = grouped_by_each_variant_type.sort_values(
+        by=['total_samples'], ascending=False, ignore_index=True
+    )
+
+    return sorted_grouped_by_variant_type
+
+
+def write_out_intermediate_excel(grouped_df_raw):
     """
     Write out the Excel with the raw data
 
     Parameters
     ----------
-    grouped_df : pd.DataFrame
+    grouped_df_raw : pd.DataFrame
         pandas df with all info on each test
     """
-    # Subset to remove file ID columns
-    grouped_df = grouped_df[[
-        'run', 'run_date', 'sample', 'clinical_indication', 'type',
+    # Subset to remove file ID and run date columns
+    grouped_df_raw = grouped_df_raw[[
+        'run', 'sample', 'clinical_indication', 'type',
         'snv_included_variants', 'cnv_included_variants',
         'SNV_report_released', 'CNV_report_released', 'any_report_released'
     ]]
+
+    grouped_df = grouped_df_raw.sort_values(
+        by=['clinical_indication'], ignore_index=True
+    )
 
     writer = pd.ExcelWriter('EBH-3050_raw_data.xlsx')
     grouped_df.to_excel(
@@ -539,42 +618,48 @@ def write_out_intermediate_excel(grouped_df):
 
 
 def write_out_final_excel(
-        by_workbook_df, by_variants_df, sheet_1, sheet_2, outfile_name
+        dataframe_1, dataframe_2, sheet_1, sheet_2, outfile_name
     ):
     """
     Write out pandas dfs to sheets of Excel file
 
     Parameters
     ----------
-    by_workbook_df : pd.DataFrame
-        pandas df to write out
-    outfile_name : str
+    dataframe_1 : pd.DataFrame
+        first pandas df to write out
+    dataframe_2: pd.DataFrame
+        second pandas df to write out
+    sheet_1 : str
+        name of first sheet
+    sheet_2 : str
+        name of second sheet
+    outfile_name: str
         name of Excel file to write out
     """
     writer = pd.ExcelWriter(outfile_name)
-    by_workbook_df.to_excel(
+    dataframe_1.to_excel(
         writer, sheet_name=sheet_1, index=False
     )
     # Automatically set column widths to fit content
-    for column in by_workbook_df:
+    for column in dataframe_1:
         column_length = max(
-            by_workbook_df[column].astype(str).map(len).max(),
+            dataframe_1[column].astype(str).map(len).max(),
             len(column)
         )
-        col_idx = by_workbook_df.columns.get_loc(column)
+        col_idx = dataframe_1.columns.get_loc(column)
         writer.sheets[sheet_1].set_column(
             col_idx, col_idx, column_length
         )
 
-    by_variants_df.to_excel(
+    dataframe_2.to_excel(
         writer, sheet_name=sheet_2, index=False
     )
-    for column in by_variants_df:
+    for column in dataframe_2:
         column_length = max(
-            by_variants_df[column].astype(str).map(len).max(),
+            dataframe_2[column].astype(str).map(len).max(),
             len(column)
         )
-        col_idx = by_variants_df.columns.get_loc(column)
+        col_idx = dataframe_2.columns.get_loc(column)
         writer.sheets[sheet_2].set_column(
             col_idx, col_idx, column_length
         )
@@ -586,9 +671,7 @@ def main():
     """Main function"""
     args = parse_args()
     # Find all 002 Dias projects since new filtering introduced
-    # start_date = '2024-04-10'
     projects_002 = find_dx_projects(args.start_date, args.end_date)
-    print(f"Found {len(projects_002)} 002 projects since {args.start_date}")
 
     # Find SNV and then CNV reports in all of those projects and store
     # as list of dictionaries, each with info about a report
@@ -633,8 +716,33 @@ def main():
     # Write out final Excel with two sheets, grouped by workbook release
     # and grouped by any variants
     write_out_final_excel(
-        sorted_any_workbook, sorted_any_variants, 'by_workbook_release',
-        'by_variants', args.outfile_name
+        dataframe_1=sorted_any_workbook,
+        dataframe_2=sorted_any_variants,
+        sheet_1='by_workbook_release',
+        sheet_2='by_variants',
+        outfile_name=args.outfile_name
+    )
+
+    # Create df grouped by clinical indication with counts of samples
+    # and how many workbooks of each type released
+    report_type_release = group_and_count_by_workbook_type_release(
+        report_release_df
+    )
+
+    # Create df grouped by clinical indication with counts of samples and
+    # how many had variants of each type
+    variant_type_release = group_and_count_by_variant_existence_per_type(
+        report_release_df
+    )
+
+    # Write out another Excel with two sheets, grouped by release of each
+    # workbook type and grouped by existence of each variant type
+    write_out_final_excel(
+        dataframe_1=report_type_release,
+        dataframe_2=variant_type_release,
+        sheet_1='by_workbook_type_release',
+        sheet_2='by_variant_type',
+        outfile_name='EBH_3050_by_workbook_and_variant_type.xlsx'
     )
 
 
