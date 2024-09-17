@@ -1,0 +1,90 @@
+{
+    "project_search": {
+        "assay": "TWE",
+        "pattern": "^038.*TWE38$",
+        "after_date": null,
+        "before_date": null,
+        "mode": "regexp",
+        "number_of_projects": 10
+    },
+    "file": {
+        "flagstat": {
+            "pattern": "multiqc_samtools_flagstat.txt",
+            "plots": [
+                {
+                    "col_name": "mapped_passed",
+                    "y_range_low": null,
+                    "y_range_high": null,
+                    "plot_failed": true,
+                    "warning_line": null,
+                    "fail_line": null,
+                    "plot_std": true
+                }
+            ]
+        },
+        "verifybamid": {
+            "pattern": "multiqc_verifybamid.txt",
+            "plots": [
+                {
+                    "col_name": "FREEMIX",
+                    "y_range_low": null,
+                    "y_range_high": null,
+                    "plot_failed": true,
+                    "warning_line": null,
+                    "fail_line": null,
+                    "plot_std": true
+                }
+            ]
+        },
+        "picard": {
+            "pattern": "multiqc_picard_HsMetrics.txt",
+            "plots": [
+                {
+                    "col_name": "PCT_TARGET_BASES_20X",
+                    "y_range_low": null,
+                    "y_range_high": null,
+                    "plot_failed": true,
+                    "warning_line": null,
+                    "fail_line": null,
+                    "plot_std": true
+                },
+                {
+                    "col_name": "FOLD_80_BASE_PENALTY",
+                    "y_range_low": 1.3,
+                    "y_range_high": 1.8,
+                    "plot_failed": true,
+                    "warning_line": null,
+                    "fail_line": null,
+                    "plot_std": true
+                },
+                {
+                    "col_name": "FOLD_ENRICHMENT",
+                    "y_range_low": 37.0,
+                    "y_range_high": 42.0,
+                    "plot_failed": true,
+                    "warning_line": null,
+                    "fail_line": null,
+                    "plot_std": true
+                }
+            ]
+        },
+        "het_hom": {
+            "pattern": "multiqc_het-hom_table.txt",
+            "plots":[
+                {
+                    "col_name": "mean het ratio",
+                    "y_range_low": 0.43,
+                    "y_range_high": 0.455,
+                    "plot_failed": true,
+                    "warning_line": null,
+                    "fail_line": null,
+                    "plot_std": true
+                }
+            ]
+        },
+        "qc_status": {
+            "pattern": "^(?i).*_QC_Status\\.xlsx$",
+            "plots": []
+        }
+    }
+}
