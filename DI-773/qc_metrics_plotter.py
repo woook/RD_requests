@@ -151,36 +151,30 @@ def get_files(projects, config):
                     )
 
                 else:
-                    # QC status xlsx's could not be accessed via dxpy as there
-                    # is an encoding error / unreadable byte and are therefore
-                    # downloaded locally first before being accessed
-                    filename = search_result["id"] + ".xlsx"
-
+                    fh = dxpy.open_dxfile(search_result["id"], mode='rb').read()
                     try:
-                        dxpy.bindings.dxfile_functions.download_dxfile(
-                            dxid=search_result["id"],
-                            filename=filename
+                        df = pd.read_excel(
+                            fh,
+                            engine="openpyxl",
+                            usecols=range(8),
+                            names=[
+                                'Sample', 'M Reads Mapped',
+                                'Contamination (S)', '% Target Bases 20X',
+                                '% Aligned', 'Insert Size', 'QC_status', 'Reason'
+                            ]
                         )
-                    except dxpy.exceptions.InvalidState as e:
-                        print(
-                            f"Trying to download {search_result['id']} {e}"
-                            "\nNow requesting unarchiving"
+                    except:
+                        df = pd.read_excel(
+                            fh,
+                            engine="openpyxl",
+                            sheet_name="Sheet2",
+                            usecols=range(8),
+                            names=[
+                                'Sample', 'M Reads Mapped',
+                                'Contamination (S)', '% Target Bases 20X',
+                                '% Aligned', 'Insert Size', 'QC_status', 'Reason'
+                            ]
                         )
-                        print()
-                        file_object = dxpy.DXFile(search_result["id"], project=project_id)
-                        file_object.unarchive()
-                        continue
-
-                    df = pd.read_excel(
-                        filename,
-                        engine="openpyxl",
-                        usecols=range(8),
-                        names=[
-                            'Sample', 'M Reads Mapped',
-                            'Contamination (S)', '% Target Bases 20X',
-                            '% Aligned', 'Insert Size', 'QC_status', 'Reason'
-                        ]
-                    )
                     df['run'] = proj['describe']['name']
                     dfs_dict[key]["dfs"].append(df)
 
