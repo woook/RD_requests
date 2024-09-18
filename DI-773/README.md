@@ -24,12 +24,12 @@ The script `qc_metrics_plotter.py` takes inputs:
 
 ### Running
 Example command:
-`python3 'qc_metrics_plotter.py' -c 'qc_threshold_config_cen.json' -r 'gather_and_plot'`
+`python3 'qc_metrics_plotter.py' -c qc_threshold_config_cen.json -r gather_and_plot`
 
 ### How it works
 The script:
 1. Searches for desired projects according to search parameters defined in the "project_search" section of the config
-2. Within the projects found above, finds all desired QC files as specified in the "file" section of the config and reads the files in as panda dataframes. *Note: every file except QC Status.xlsx's can be accessed via dxpy. Due to an encoding problem / unreadable byte, the QC status .xlsx's are downloaded locally first, then read in*
+2. Within the projects found above, finds all desired QC files as specified in the "file" section of the config and reads the files in as panda dataframes.
 3. Data is merged for each file type across all the selected projects into a single dataframe per file type.
 4. QC status information derived from the corresponding GRCh37 project is appended to the merged metrics dataframes to aid plotting.
 5. The merged metrics dataframes appeneded with QC information are outputted as .tsv's for future use

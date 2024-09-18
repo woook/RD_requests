@@ -5,7 +5,7 @@
         "after_date": null,
         "before_date": null,
         "mode": "regexp",
-        "number_of_projects": 10
+        "number_of_projects": 20
     },
     "file": {
         "flagstat": {
