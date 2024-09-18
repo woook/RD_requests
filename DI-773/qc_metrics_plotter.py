@@ -356,7 +356,7 @@ def main():
 
         # output merged qc_status .xlsx's to .tsv
         qc_df = dfs_dict['qc_status']
-        qc_df.to_csv('merged_qc_status.tsv', sep='\t', ignore=False)
+        qc_df.to_csv('merged_qc_status.tsv', sep='\t', index=False)
 
         for key in dfs_dict.keys():
             if key != 'qc_status':
