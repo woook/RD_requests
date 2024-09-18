@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.io as pio
 import json
-import sys
 import argparse
 pio.renderers.default = 'browser'
 
@@ -42,18 +41,35 @@ def parse_args():
 
 
 def get_projects(
-    search,
+    search_term,
     number_of_projects=None,
     after_date=None,
     before_date=None,
     search_mode="regexp"
 ):
     """
-    Find projects within specified data range using specified search mode
-    """
+    Find projects within specified data range using specified search term and
+        mode.
 
+    Args:
+        search_term (str): Search term or regexp pattern used to find projects.
+        number_of_projects (int, optional): Number of projects to use. This
+            takes the most recent projects based on the date in the project
+            name rather than creation date. Defaults to None.
+        after_date (str, optional): Select projects created after this date.
+            Defaults to None.
+        before_date (str, optional): Select projects created before this date.
+            Defaults to None.
+        search_mode (str, optional): Type of dxpy search mode to use,
+            acceptable search_modes "regexp", "glob" and "exact".
+            Defaults to "regexp".
+
+    Returns:
+        list: list of dictionaries containing information (project ID/name)
+            on the selected projects
+    """
     projects = list(dxpy.bindings.search.find_projects(
-        name=search,
+        name=search_term,
         name_mode=search_mode,
         created_after=after_date,
         created_before=before_date,
@@ -67,8 +83,18 @@ def get_projects(
     return projects
 
 
-def read2df(file_id, project):
-    """Read in tsv file to df"""
+def read2df(file_id: str, project: dict):
+    """
+    Read in tsv file to df
+
+    Args:
+        file_id (str): DNA nexus file ID of tsv file to be read in.
+        project (dict): dictionary object containing project info (name/ID) of
+            the project containing the file.
+
+    Returns:
+        pd.DataFrame: pd.DataFrame object of file
+    """
     file = dxpy.bindings.dxfile_functions.open_dxfile(
         file_id,
         project=project["id"],
@@ -101,8 +127,8 @@ def get_files(projects, config):
         dfs_dict[key] = {"dfs": []}
 
     for proj in projects:
+        project_id = proj["id"]
         for key in config["file"].keys():
-            project_id = proj["id"]
 
             if key != "qc_status":
                 # Find files in project using search term specified in config
@@ -116,7 +142,7 @@ def get_files(projects, config):
                 project_name_b37 = proj['describe']['name'][4:-6]
                 search_term_b37 = f"002_{project_name_b37}_{config['project_search']['assay']}"
                 projects_b37 = get_projects(
-                    search=search_term_b37,
+                    search_term=search_term_b37,
                     search_mode="exact"
                 )
 
@@ -163,7 +189,7 @@ def get_files(projects, config):
                                 '% Aligned', 'Insert Size', 'QC_status', 'Reason'
                             ]
                         )
-                    except:
+                    except ValueError:
                         df = pd.read_excel(
                             fh,
                             engine="openpyxl",
@@ -291,7 +317,7 @@ def main():
     if args.runmode == "gather_and_plot":
 
         projects = get_projects(
-            search=config['project_search']['pattern'],
+            search_term=config['project_search']['pattern'],
             number_of_projects=config['project_search']['number_of_projects'],
             after_date=config['project_search']["after_date"],
             before_date=config['project_search']["before_date"],
@@ -307,7 +333,7 @@ def main():
 
         # output merged qc_status .xlsx's to .tsv
         qc_df = dfs_dict['qc_status']
-        qc_df.to_csv('merged_qc_status.tsv', sep='\t')
+        qc_df.to_csv('merged_qc_status.tsv', sep='\t', ignore_index=True)
 
         for key in dfs_dict.keys():
             if key != 'qc_status':
@@ -339,15 +365,15 @@ def main():
             plot_file = key + ".tsv"
             for plot_config in config["file"][key]["plots"]:
                 make_plot(
-                        df=pd.read_csv(plot_file, sep="\t"),
-                        col_name=plot_config["col_name"],
-                        assay=config["project_search"]["assay"],
-                        y_range_low=plot_config["y_range_low"],
-                        y_range_high=plot_config["y_range_high"],
-                        plot_failed=plot_config["plot_failed"],
-                        warning_line=plot_config["warning_line"],
-                        fail_line=plot_config["fail_line"],
-                        plot_std=plot_config["plot_std"]
+                    df=pd.read_csv(plot_file, sep="\t"),
+                    col_name=plot_config["col_name"],
+                    assay=config["project_search"]["assay"],
+                    y_range_low=plot_config["y_range_low"],
+                    y_range_high=plot_config["y_range_high"],
+                    plot_failed=plot_config["plot_failed"],
+                    warning_line=plot_config["warning_line"],
+                    fail_line=plot_config["fail_line"],
+                    plot_std=plot_config["plot_std"]
                     )
 
 
