@@ -107,6 +107,8 @@ def read2df(file_id: str, project: dict):
             f"Trying to access {file_id} {e}"
             "\nNow requesting unarchiving"
         )
+        file_object = dxpy.DXFile(file_id, project=project["id"])
+        file_object.unarchive()
         return
     df['run'] = project['describe']['name']
     return df
