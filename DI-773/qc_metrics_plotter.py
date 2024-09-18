@@ -100,7 +100,14 @@ def read2df(file_id: str, project: dict):
         project=project["id"],
         mode="r",
     )
-    df = pd.read_csv(file, sep="\t")
+    try:
+        df = pd.read_csv(file, sep="\t")
+    except dxpy.exceptions.InvalidState as e:
+        print(
+            f"Trying to access {file_id} {e}"
+            "\nNow requesting unarchiving"
+        )
+        return
     df['run'] = project['describe']['name']
     return df
 
@@ -177,7 +184,16 @@ def get_files(projects, config):
                     )
 
                 else:
-                    fh = dxpy.open_dxfile(search_result["id"], mode='rb').read()
+                    try:
+                        fh = dxpy.open_dxfile(search_result["id"], mode='rb').read()
+                    except dxpy.exceptions.InvalidState as e:
+                        print(
+                            f"Trying to download {search_result['id']} {e}"
+                            "\nNow requesting unarchiving"
+                        )
+                        file_object = dxpy.DXFile(search_result["id"], project=project_id)
+                        file_object.unarchive()
+                        continue
                     try:
                         df = pd.read_excel(
                             fh,
@@ -203,6 +219,11 @@ def get_files(projects, config):
                         )
                     df['run'] = proj['describe']['name']
                     dfs_dict[key]["dfs"].append(df)
+            else:
+                raise RuntimeError(
+                    "No files found using search term:"
+                    f"{config['file'][key]['pattern']} in {project_id}:\n"
+                )
 
     return dfs_dict
 
@@ -333,7 +354,7 @@ def main():
 
         # output merged qc_status .xlsx's to .tsv
         qc_df = dfs_dict['qc_status']
-        qc_df.to_csv('merged_qc_status.tsv', sep='\t', ignore_index=True)
+        qc_df.to_csv('merged_qc_status.tsv', sep='\t', ignore=False)
 
         for key in dfs_dict.keys():
             if key != 'qc_status':
