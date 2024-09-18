@@ -107,6 +107,8 @@ def read2df(file_id: str, project: dict):
             f"Trying to access {file_id} {e}"
             "\nNow requesting unarchiving"
         )
+        file_object = dxpy.DXFile(file_id, project=project["id"])
+        file_object.unarchive()
         return
     df['run'] = project['describe']['name']
     return df
@@ -354,7 +356,7 @@ def main():
 
         # output merged qc_status .xlsx's to .tsv
         qc_df = dfs_dict['qc_status']
-        qc_df.to_csv('merged_qc_status.tsv', sep='\t', ignore=False)
+        qc_df.to_csv('merged_qc_status.tsv', sep='\t', index=False)
 
         for key in dfs_dict.keys():
             if key != 'qc_status':
