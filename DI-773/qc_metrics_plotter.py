@@ -259,8 +259,8 @@ def make_plot(
         View of plotly plot in browser window
         .html of the plotly plot named after the col_name input.
     """
-    passed_df = df[(df['QC_status'].str.lower() == 'pass') | (df['QC_status'].str.lower() == 'warning')].sort_values('run')
-    failed_df = df[(df['QC_status'].str.lower() == "fail") | (df['QC_status'].str.lower() == "cancelled")].sort_values('run')
+    passed_df = df[(df['QC_status'].str.strip().str.lower() == 'pass') | (df['QC_status'].str.strip().str.lower() == 'warning')].sort_values('run')
+    failed_df = df[(df['QC_status'].str.strip().str.lower() == "fail") | (df['QC_status'].str.strip().str.lower() == "cancelled")].sort_values('run')
     n_filtered_rows = len(passed_df) + len(failed_df)
     assert n_filtered_rows == len(df), f"QC_Status column contains invalid values: {df['QC_status'].unique().tolist()}"
 
