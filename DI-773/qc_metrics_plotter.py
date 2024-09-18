@@ -188,7 +188,7 @@ def get_files(projects, config):
                         fh = dxpy.open_dxfile(search_result["id"], mode='rb').read()
                     except dxpy.exceptions.InvalidState as e:
                         print(
-                            f"Trying to download {search_result['id']} {e}"
+                            f"Trying to open {search_result['id']} {e}"
                             "\nNow requesting unarchiving"
                         )
                         file_object = dxpy.DXFile(search_result["id"], project=project_id)
