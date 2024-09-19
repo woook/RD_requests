@@ -54,7 +54,7 @@
                     "y_range_high": null,
                     "plot_failed": true,
                     "warning_line": null,
-                    "fail_line": 0.9,
+                    "fail_line": 0.95,
                     "plot_std": true
                 },
                 {
