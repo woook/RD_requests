@@ -19,6 +19,15 @@
                     "warning_line": null,
                     "fail_line": null,
                     "plot_std": true
+                },
+                {
+                    "col_name": "with mate mapped to a different chr_passed",
+                    "y_range_low": null,
+                    "y_range_high": null,
+                    "plot_failed": true,
+                    "warning_line": null,
+                    "fail_line": null,
+                    "plot_std": true
                 }
             ]
         },
@@ -31,7 +40,7 @@
                     "y_range_high": null,
                     "plot_failed": true,
                     "warning_line": null,
-                    "fail_line": null,
+                    "fail_line": 0.05,
                     "plot_std": true
                 }
             ]
@@ -45,22 +54,22 @@
                     "y_range_high": null,
                     "plot_failed": true,
                     "warning_line": null,
-                    "fail_line": null,
+                    "fail_line": 0.90,
                     "plot_std": true
                 },
                 {
                     "col_name": "FOLD_80_BASE_PENALTY",
-                    "y_range_low": 1.3,
-                    "y_range_high": 1.8,
+                    "y_range_low": null,
+                    "y_range_high": null,
                     "plot_failed": true,
-                    "warning_line": null,
+                    "warning_line": 1.6,
                     "fail_line": null,
                     "plot_std": true
                 },
                 {
                     "col_name": "FOLD_ENRICHMENT",
-                    "y_range_low": 37.0,
-                    "y_range_high": 42.0,
+                    "y_range_low": null,
+                    "y_range_high": null,
                     "plot_failed": true,
                     "warning_line": null,
                     "fail_line": null,
@@ -73,11 +82,11 @@
             "plots":[
                 {
                     "col_name": "mean het ratio",
-                    "y_range_low": 0.43,
-                    "y_range_high": 0.455,
+                    "y_range_low": null,
+                    "y_range_high": null,
                     "plot_failed": true,
                     "warning_line": null,
-                    "fail_line": null,
+                    "fail_line": 0.45,
                     "plot_std": true
                 }
             ]
