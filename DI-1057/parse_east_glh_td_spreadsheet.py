@@ -59,7 +59,7 @@ def get_panel_info(panel_id):
 
 def parse_spreadsheet(file):
     """
-    Parses the spreadsheet and formats the data for comparison with the PostgreSQL database.
+    Parses the spreadsheet and formats the data for comparison with td_sql.csv.
 
     Args:
         file (str): Path to the spreadsheet file to parse.
@@ -70,23 +70,23 @@ def parse_spreadsheet(file):
     df = df[COLS]
     df = df[df["Test ID"].isin(TEST_IDS)]
 
-    # Remove spaces from col names
-    df.columns = ["clinical_indication_id", "test_id", "clinical_indication", "target_genes"]
+    # Rename cols to match db schema
+    df.columns = ["clinical-indication-id","test-id", "clinical-indication", "Target/Genes"]
 
-    df["panel_id"] = df["target_genes"].apply(extract_panel_id)
+    df["panel-id"] = df["Target/Genes"].apply(extract_panel_id)
 
     # Fetch panel_name and panel_version from the API based on panel_id
-    df[["panel_name", "panel_version"]] = df["panel_id"].apply(
+    df[["panel-name", "panel-version"]] = df["panel-id"].apply(
         lambda panel_id: pd.Series(get_panel_info(panel_id))
     )
 
     # Determine the panel type based on whether the panel_id exists
-    df["panel_type"] = df["panel_id"].apply(lambda x: "PanelApp" if x else "EastGLH")
+    df["panel-type"] = df["panel-id"].apply(lambda x: "PanelApp" if x else "EastGLH")
 
     # Drop the original "Target/Genes" column
-    df.drop(columns=["target_genes"], inplace=True)
+    df.drop(columns=["Target/Genes"], inplace=True)
 
-    df.sort_values("test_id", inplace=True)
+    df.sort_values("test-id", inplace=True)
     df.to_csv("internal_east_glh_td.csv", index=False)
 
 if __name__ == "__main__":
