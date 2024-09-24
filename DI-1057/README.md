@@ -5,19 +5,26 @@ Validate the version of TD database hosted on AWS RDS service against the Intern
 
 Add genes data into TD database
 
-### Inputs
-The script  takes inputs:
-- 
-- 
+### Scripts
+1. `query_db.py`: 
+Fetches panel and gene data from the Test Directory database and saves it to a CSV file.
 
-### Running
-Example command:
+2. `parse_east_glh_td_spreadsheet.py`:
+Parses the East-GLH Test Directory spreadsheet, retrieves panel info from the PanelApp API, and formats the data for comparison.
 
+3. `compare_dfs.py`:
+Compares the data from the spreadsheet and database, identifying mismatches
 
-### How it works
-The script:
+### How to Run
+1. Set up credentials: Ensure your database credentials are set in environment variables.
 
-### Runmodes
--
+2. Install dependencies:
+`pip install -r requirements.txt`
+
+3. Run scripts in following order:
+- `python query_db.py`
+- `python parse_east_glh_td_spreadsheet.py`
+- `python compare_dfs.py`
 
 ### Output
+Prints diff between the two data sources to stdout and writes a summary to a spreadsheet (`td_diff.xlsx`).
