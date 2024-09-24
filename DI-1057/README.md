@@ -11,6 +11,7 @@ Fetches panel and gene data from the Test Directory database and saves it to a C
 
 2. `parse_east_glh_td_spreadsheet.py`:
 Parses the East-GLH Test Directory spreadsheet, retrieves panel info from the PanelApp API, and formats the data for comparison.
+*Requires the spreadsheet file as input (-i or --internal_td_spreadsheet).*
 
 3. `compare_dfs.py`:
 Compares the data from the spreadsheet and database, identifying mismatches
@@ -23,7 +24,7 @@ Compares the data from the spreadsheet and database, identifying mismatches
 
 3. Run scripts in following order:
 - `python query_db.py`
-- `python parse_east_glh_td_spreadsheet.py`
+- `python parse_east_glh_td_spreadsheet.py -i path/to/spreadsheet`
 - `python compare_dfs.py`
 
 ### Output

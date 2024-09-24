@@ -2,7 +2,7 @@
 Reads data from East GLH RD TD spreadsheet and processes columns and rows to match data
 from PostgreSQL database (td_sql.csv).
 """
-
+import argparse
 import pandas as pd
 import re
 import requests
@@ -88,7 +88,25 @@ def parse_spreadsheet(file):
 
     df.sort_values("test-id", inplace=True)
     df.to_csv("internal_east_glh_td.csv", index=False)
+    
+def parse_arguments():
+    """
+    Parses command-line arguments.
+    """
+    parser = argparse.ArgumentParser(
+        description='Process the East GLH RD TD spreadsheet and format it for comparison.'
+    )
+    parser.add_argument(
+        '--internal_td_spreadsheet', '-i', 
+        type=str, required=True,
+        help='Path to the Internal East GLH Rare Disease Test Directory spreadsheet (.xlsx)'
+    )
+    
+    return parser.parse_args()
 
 if __name__ == "__main__":
-    parse_spreadsheet(FILE)
+    args = parse_arguments()
+    
+    parse_spreadsheet(args.internal_td_spreadsheet)
+
     print("DONE")
