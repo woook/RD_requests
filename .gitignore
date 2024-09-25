@@ -1,2 +1,6 @@
 *.xlsx
 *.xlsx#
+.env
+venv/
+*.csv
+*.tsv
