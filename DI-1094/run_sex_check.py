@@ -11,9 +11,17 @@ import dxpy
 def get_project_ids(pattern: str) -> list:
     """
     Retrieve the 20 most recent project ids matching pattern
+    
+    Args:
+        pattern (str): The pattern used to match project names.
+
+    Returns:
+        list: A list of the 20 most recent project IDs.
     """
     res = list(
-        dxpy.find_projects(level="VIEW", name=pattern, name_mode="glob", describe=True)
+        dxpy.find_projects(
+            level="VIEW", name=pattern, name_mode="glob", describe=True
+        )
     )
 
     df = pd.DataFrame(
@@ -37,6 +45,13 @@ def get_project_ids(pattern: str) -> list:
 def find_files(project_id: str, pattern: str) -> pd.DataFrame:
     """
     find file_names that matches pattern in a given project
+    
+    Args:
+        project_id (str): The project ID to search within.
+        pattern (str): The file name pattern to search for.
+
+    Returns:
+        pd.DataFrame: DataFrame containing file IDs and metadata
     """
     res = list(
         dxpy.find_data_objects(
@@ -47,7 +62,9 @@ def find_files(project_id: str, pattern: str) -> pd.DataFrame:
             classname="file",
             name_mode="glob",
             describe={
-                "fields": {"name": True, "modified": True, "archivalState": True}
+                "fields": {
+                    "name": True, "modified": True, "archivalState": True
+                }
             },
         )
     )
@@ -86,7 +103,14 @@ def find_files(project_id: str, pattern: str) -> pd.DataFrame:
 
 def unarchive_files(df: pd.DataFrame) -> pd.DataFrame | None:
     """
-    Check and unarchive files if necessary.
+    Check the archival state of files and unarchive them if necessary.
+    
+    Args:
+        df (pd.DataFrame): DataFrame containing files to unarchive
+
+    Returns:
+        pd.DataFrame | None: Returns the DataFrame if all files are live;
+        otherwise, exits after unarchiving files.
     """
     df_to_unarchive = df[df.state.isin(["archived", "archival"])]
     if df_to_unarchive.empty:
@@ -99,7 +123,9 @@ def unarchive_files(df: pd.DataFrame) -> pd.DataFrame | None:
             sys.exit()
 
     for project_id, files in df_to_unarchive.groupby("project_id")["files"]:
-        response = dxpy.api.project_unarchive(project_id, {"files": list(files)})
+        response = dxpy.api.project_unarchive(
+            project_id, {"files": list(files)}
+        )
         print(response)
 
     print(f"Unarchive request sent for {len(df_to_unarchive)} files.")
@@ -109,7 +135,10 @@ def unarchive_files(df: pd.DataFrame) -> pd.DataFrame | None:
 
 def get_files() -> pd.DataFrame:
     """
-    Find BAM and index files in dias b38 projects and handle unarchival if needed.
+    Find BAM and index files in dias b38 projects and unarchive them if needed.
+    
+    Returns:
+        pd.DataFrame: DataFrame of BAM and index files.
     """
     # Retrieve project IDs for both CEN38 and TWE38 projects
     cen_projects = get_project_ids("*_CEN38")
@@ -117,7 +146,7 @@ def get_files() -> pd.DataFrame:
     projects = cen_projects + twe_projects
 
     print(
-        f"Using {len(cen_projects)} CEN projects and {len(twe_projects)} TWE projects"
+        f"Using {len(cen_projects)} CEN and {len(twe_projects)} TWE projects"
     )
 
     # Find BAM and index files in the projects
@@ -142,10 +171,15 @@ def get_files() -> pd.DataFrame:
     # Check archival state and prepare files for unarchiving
     df = pd.concat(
         [
-            df_merged[["project_id", "file_id_bam", "archival_state_bam"]].assign(
-                files=df_merged["file_id_bam"], state=df_merged["archival_state_bam"]
+            df_merged[
+                ["project_id", "file_id_bam", "archival_state_bam"]
+                ].assign(
+                files=df_merged["file_id_bam"],
+                state=df_merged["archival_state_bam"]
             ),
-            df_merged[["project_id", "file_id_index", "archival_state_index"]].assign(
+            df_merged[
+                ["project_id", "file_id_index", "archival_state_index"]
+                ].assign(
                 files=df_merged["file_id_index"],
                 state=df_merged["archival_state_index"],
             ),
@@ -162,6 +196,12 @@ def get_files() -> pd.DataFrame:
 def process_input_files(df: pd.DataFrame) -> pd.DataFrame:
     """
     Fetch project names and add metadata columns (run, assay, date).
+    
+    Args:
+        df (pd.DataFrame): DataFrame containing sample and project ids.
+
+    Returns:
+        pd.DataFrame: DataFrame with added meta columns; run, assay, and date.
     """
     # Fetch project names concurrently
     with ThreadPoolExecutor(max_workers=32) as executor:
@@ -183,6 +223,9 @@ def process_input_files(df: pd.DataFrame) -> pd.DataFrame:
 def run_eggd_sex_check(df: pd.DataFrame) -> None:
     """
     Run eggd_sex_check for each sample in df.
+    
+    Args:
+        df (pd.DataFrame): DataFrame containing input samples
     """
     for _, row in df.iterrows():
         project_id = row["project_id"]
@@ -191,6 +234,7 @@ def run_eggd_sex_check(df: pd.DataFrame) -> None:
         index_file = row["file_id_index"]
 
         # Set thresholds based on assay type
+        # Thresholds chosen arbitrary
         male_threshold = 4.40 if assay == "CEN38" else 4.05
         female_threshold = 5.02 if assay == "CEN38" else 5.05
 
@@ -214,7 +258,11 @@ def run_eggd_sex_check(df: pd.DataFrame) -> None:
 
 def write_inputs_to_disk(df: pd.DataFrame, file_name: str) -> None:
     """
-    Write the final processed DataFrame to disk.
+    Writes a DataFrame to a CSV file.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to write to file.
+        file_name (str): Name of the output CSV file.
     """
     # Select relevant columns and save to CSV
     cols = [

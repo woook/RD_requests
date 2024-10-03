@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Sex_check thresholds for DIAS
-This script reads input files, processes sex check results, and generates 
+This script reads input files, processes sex check results, and generates
 histograms and scatter plots for the CEN and TWE assays.
 """
 
@@ -22,7 +22,9 @@ def parse_arguments() -> argparse.Namespace:
         description="Process and plot sex_check thresholds for CEN or TWE assays."
     )
 
-    parser.add_argument("--samples", required=True, help="Path to dias_b38_samples.csv")
+    parser.add_argument(
+        "--samples", required=True, help="Path to dias_b38_samples.csv"
+    )
     parser.add_argument(
         "--somalier", required=True, help="Path to b38_somalier_report.csv"
     )
@@ -105,7 +107,10 @@ def read_somalier_report(file_path: str) -> Dict[str, bool]:
     df_somalier = pd.read_csv(file_path)
     df_somalier = df_somalier[~df_somalier["sample_id"].str.contains("NA12878-")]
     assert len(df_somalier) == len(df_somalier.sample_id.unique())
-    return {row["sample_id"]: row["Match_Sexes"] for _, row in df_somalier.iterrows()}
+    return {
+        row["sample_id"]: row["Match_Sexes"]
+        for _, row in df_somalier.iterrows()
+    }
 
 
 def read_sex_check_table(
@@ -115,13 +120,15 @@ def read_sex_check_table(
     samples_to_somalier: Dict[str, bool],
 ) -> pd.DataFrame:
     """
-    Read and process the sex check table, adding meta columns like run, date, and somalier status.
+    Read and process the sex check table, adding meta columns like run, date, 
+    and somalier status.
 
     Args:
         file_path (str): Path to the sex check table file.
         samples_to_run (Dict[str, str]): Mapping of samples to run.
         samples_to_date (Dict[str, str]): Mapping of samples to dates.
-        samples_to_somalier (Dict[str, bool]): Mapping of samples to somalier predictions.
+        samples_to_somalier (Dict[str, bool]): Mapping of samples to 
+        somalier predictions.
 
     Returns:
         pd.DataFrame: Processed sex check table with additional metadata.
@@ -159,7 +166,8 @@ def calculate_thresholds(
 
 
 def plot_histogram_with_thresholds(
-    df: pd.DataFrame, assay: str, male_threshold: float, female_threshold: float
+    df: pd.DataFrame, assay: str, male_threshold: float,
+    female_threshold: float
 ) -> None:
     """
     Plot a histogram of scores with male and female thresholds.
@@ -222,7 +230,7 @@ def plot_score_trend(
         male_threshold (float): The male threshold value.
         female_threshold (float): The female threshold value.
     """
-    color_discrete_map = {"False": "red","True": "green"}
+    color_discrete_map = {"False": "red", "True": "green"}
     df["size"] = 1
     fig = px.scatter(
         df,
@@ -252,7 +260,8 @@ def plot_score_trend(
     )
 
     fig.update_layout(
-        width=900, height=600, title=f"Trends of sex_check Scores for {assay} Samples"
+        width=900, height=600,
+        title=f"Trends of sex_check Scores for {assay} Samples"
     )
     fig.show()
     fig.write_html(f"sex_check_thresholds_{assay}.html")
@@ -281,7 +290,7 @@ def main() -> None:
     else:
         if args.male_threshold is None or args.female_threshold is None:
             raise ValueError(
-                "You must provide both male and female thresholds if not calculating them."
+                "You must provide thresholds if not calculating them."
             )
         male_threshold = args.male_threshold
         female_threshold = args.female_threshold
