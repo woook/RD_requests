@@ -24,7 +24,7 @@ Example command:
 
 ### How it works
 The script:
-1. Searches for relevant GRCh38 projects according to search parameters defined in the "project_search" section of the config
+1. Searches for relevant GRCh38 projects according to search parameters defined in the "project_search" section of the config.
 2. Within the projects found above, finds all desired QC files as specified in the "file" section of the config and reads the files in as pandas dataframes.
 3. Data is merged for each file type across all the selected projects into a single dataframe per file type.
 4. QC status information derived from the corresponding GRCh37 project is appended to the merged metrics dataframes to aid plotting.

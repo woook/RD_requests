@@ -506,7 +506,8 @@ def make_main_happy_plot(
     col_name_y,
 ):
     """
-    _summary_
+    Make the SNP or INDEL hap.py plot which will be added as a subplot
+    later
 
     Parameters
     ----------
@@ -688,10 +689,9 @@ def make_happy_plot(happy_df, config):
         cols=2,
         subplot_titles=("SNP", "INDEL"),
     )
-    counter = 0
 
     assay = config["project_search"]["assay"]
-
+    counter = 0
     for plot_config in config["file"]["happy"]["plots"]:
         counter += 1
         fig = make_main_happy_plot(
@@ -800,18 +800,21 @@ def main():
 
     elif args.runmode == "plot_only":
         assay = config["project_search"]["assay"]
-
         for key in config["file"].keys():
             plot_file = f"{key}_{assay}.tsv"
+            try:
+                qc_df = pd.read_csv(plot_file, sep="\t")
+            except FileNotFoundError as exc:
+                print(f"File {plot_file} not found")
+                raise FileNotFoundError from exc
             if key == "happy":
-                happy_df = pd.read_csv(plot_file, sep="\t")
-                make_happy_plot(happy_df, config)
+                make_happy_plot(qc_df, config)
             elif key == "qc_status":
                 continue
             else:
                 for plot_config in config["file"][key]["plots"]:
                     make_plot(
-                        df=pd.read_csv(plot_file, sep="\t"),
+                        df=qc_df,
                         col_name=plot_config["col_name"],
                         assay=config["project_search"]["assay"],
                         y_range_low=plot_config["y_range_low"],
