@@ -1,7 +1,8 @@
 *.xlsx
 *.xlsx#
+*.html
+*.tsv
+*.csv
+*.txt
 .env
 venv/
-*.csv
-*.tsv
-*.txt

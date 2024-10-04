@@ -3,19 +3,15 @@
 ### Original request
 Collect and plot QC metric values for each PASS/FAIL metric we use for latest 20 GRCh38 re-runs of CEN/TWE:
 
-Metric - File - Column
-
-M Reads Mapped - multiqc_samtools_flagstat.txt - mapped_passed
-
-Contamination - multiqc_verifybamid.txt - FREEMIX
-
-Target Bases 20x - multiqc_picard_HsMetrics.txt - PCT_TARGET_BASES_20X
-
-Mean Het Ratio - multiqc_het-hom_table.txt - mean het ratio
-
-Fold 80 Base Penalty - multiqc_picard_HsMetrics.txt - FOLD_80_BASE_PENALTY
-
-Fold Enrichment - multiqc_picard_HsMetrics.txt - FOLD_ENRICHMENT
+| Metric | File | Column(s) |
+| :---:   | :---: | :---: |
+| M Reads Mapped | `multiqc_samtools_flagstat.txt` | mapped_passed |
+| Contamination | `multiqc_verifybamid.txt` | FREEMIX |
+| Target Bases 20x | `multiqc_picard_HsMetrics.txt` | PCT_TARGET_BASES_20X |
+| Mean Het Ratio | `multiqc_het-hom_table.txt` | mean het ratio |
+| Fold 80 Base Penalty | `multiqc_picard_HsMetrics.txt` | FOLD_80_BASE_PENALTY |
+| Fold Enrichment | `multiqc_picard_HsMetrics.txt` | FOLD_ENRICHMENT |
+| Happy | `<control-sample-id>.summary.csv` | METRIC.Recall, METRIC.Precision |
 
 ### Inputs
 The script `qc_metrics_plotter.py` takes inputs:
@@ -28,11 +24,11 @@ Example command:
 
 ### How it works
 The script:
-1. Searches for desired projects according to search parameters defined in the "project_search" section of the config
-2. Within the projects found above, finds all desired QC files as specified in the "file" section of the config and reads the files in as panda dataframes.
+1. Searches for relevant GRCh38 projects according to search parameters defined in the "project_search" section of the config.
+2. Within the projects found above, finds all desired QC files as specified in the "file" section of the config and reads the files in as pandas dataframes.
 3. Data is merged for each file type across all the selected projects into a single dataframe per file type.
 4. QC status information derived from the corresponding GRCh37 project is appended to the merged metrics dataframes to aid plotting.
-5. The merged metrics dataframes appeneded with QC information are outputted as .tsv's for future use
+5. The merged metrics dataframes with QC information are outputted as .tsv's for future use.
 6. Data is plotted in a .html plot which is saved and opens in a browser window. Parameters for plotting are specified in the "plots" section of the config.
 
 ### Runmodes

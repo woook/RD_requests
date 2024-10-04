@@ -10,6 +10,7 @@
     "file": {
         "flagstat": {
             "pattern": "multiqc_samtools_flagstat.txt",
+            "file_sep": "\t",
             "plots": [
                 {
                     "col_name": "mapped_passed",
@@ -17,7 +18,7 @@
                     "y_range_high": null,
                     "plot_failed": true,
                     "warning_line": null,
-                    "fail_line": 2e7,
+                    "fail_line": [2e7],
                     "plot_std": true
                 },
                 {
@@ -33,28 +34,30 @@
         },
         "verifybamid": {
             "pattern": "multiqc_verifybamid.txt",
+            "file_sep": "\t",
             "plots": [
                 {
                     "col_name": "FREEMIX",
                     "y_range_low": null,
                     "y_range_high": null,
                     "plot_failed": true,
-                    "warning_line": null,
-                    "fail_line": 0.05,
+                    "warning_line": [0.02],
+                    "fail_line": [0.05],
                     "plot_std": true
                 }
             ]
         },
         "picard": {
             "pattern": "multiqc_picard_HsMetrics.txt",
+            "file_sep": "\t",
             "plots": [
                 {
                     "col_name": "PCT_TARGET_BASES_20X",
                     "y_range_low": null,
                     "y_range_high": null,
                     "plot_failed": true,
-                    "warning_line": null,
-                    "fail_line": 0.95,
+                    "warning_line": [0.98],
+                    "fail_line": [0.95],
                     "plot_std": true
                 },
                 {
@@ -62,8 +65,8 @@
                     "y_range_low": null,
                     "y_range_high": null,
                     "plot_failed": true,
-                    "warning_line": 1.3,
-                    "fail_line": 1.5,
+                    "warning_line": [1.3],
+                    "fail_line": [1.5],
                     "plot_std": true
                 },
                 {
@@ -71,14 +74,15 @@
                     "y_range_low": null,
                     "y_range_high": null,
                     "plot_failed": true,
-                    "warning_line": null,
-                    "fail_line": null,
+                    "warning_line": [1750],
+                    "fail_line": [1350],
                     "plot_std": true
                 }
             ]
         },
         "het_hom": {
             "pattern": "multiqc_het-hom_(table|analysis).txt",
+            "file_sep": "\t",
             "plots":[
                 {
                     "col_name": "mean het ratio",
@@ -86,14 +90,47 @@
                     "y_range_high": null,
                     "plot_failed": true,
                     "warning_line": null,
-                    "fail_line": 0.47,
+                    "fail_line": [0.47, 0.55],
                     "plot_std": true
                 }
             ]
         },
         "qc_status": {
             "pattern": "^(?i).*_QC_Status\\.xlsx$",
+            "file_sep": null,
             "plots": []
+        },
+        "happy": {
+            "pattern": ".*.summary.csv$",
+            "file_sep": ",",
+            "plots": [
+                {
+                    "data_type": "SNP",
+                    "col_x": "METRIC.Recall",
+                    "col_y": "METRIC.Precision",
+                    "x_range_low": null,
+                    "x_range_high": null,
+                    "y_range_low": 0.990,
+                    "y_range_high": 1.001,
+                    "x_warning_line": [1],
+                    "x_fail_line": [0.990],
+                    "y_warning_line": [1],
+                    "y_fail_line": null
+                },
+                {
+                    "data_type": "INDEL",
+                    "col_x": "METRIC.Recall",
+                    "col_y": "METRIC.Precision",
+                    "x_range_low": null,
+                    "x_range_high": null,
+                    "y_range_low": null,
+                    "y_range_high": null,
+                    "x_warning_line": null,
+                    "x_fail_line": [0.830],
+                    "y_warning_line": null,
+                    "y_fail_line": [0.850]
+                }
+            ]
         }
     }
 }
