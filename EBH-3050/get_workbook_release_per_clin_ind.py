@@ -70,6 +70,7 @@ def parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
+
 def find_dx_projects(start_date, end_date):
     """
     Find 002 CEN/TWE projects between certain dates
@@ -104,6 +105,7 @@ def find_dx_projects(start_date, end_date):
 
     return projects
 
+
 def find_reports(project_id, report_type):
     """
     Find xlsx reports in the DX project given. This searches the /output
@@ -131,12 +133,67 @@ def find_reports(project_id, report_type):
         describe={
             "fields": {
                 "id": True,
-                "name": True
+                "name": True,
+                "createdBy": True
             }
         }
     ))
 
     return reports
+
+
+def get_cnv_excluded_regions(cnv_report):
+    """
+    Get the CNV excluded regions file based on the job which made the CNV
+    .xlsx report
+
+    Parameters
+    ----------
+    cnv_report : dict
+        dictionary with info about a CNV report
+
+    Returns
+    -------
+    excluded_regions_id : str
+        file ID of the excluded regions file for that sample
+    """
+    cnv_workbooks_job = cnv_report["describe"]["createdBy"]["job"]
+
+    excluded_regions_id = dx.DXJob(
+        dxid=cnv_workbooks_job
+    ).describe()["input"]["additional_files"][0]["$dnanexus_link"]
+
+    return excluded_regions_id
+
+
+def read_excluded_regions_to_df(file_id, project_id):
+    """
+    Read in excluded regions file to a pandas dataframe
+
+    Parameters
+    ----------
+    file_id : str
+        DNAnexus file ID of excluded regions file
+    project_id : str
+        DNAnexus project ID
+
+    Returns:
+        pd.DataFrame: file read in as pandas dataframe (or None if there are
+        no excluded regions)
+    """
+
+    file = dx.open_dxfile(
+        file_id,
+        project=project_id,
+        mode="r",
+    )
+
+    excluded_df = pd.read_csv(file, sep="\t", header=0)
+
+    if excluded_df.empty:
+        return None
+
+    return excluded_df
 
 
 def get_reports(projects_002):
@@ -153,7 +210,7 @@ def get_reports(projects_002):
     all_reports : list
         list of dicts, each representing a SNV or CNV report
     """
-        # Find SNV and then CNV reports in all of those projects and store
+    # Find SNV and then CNV reports in all of those projects and store
     # as list of dictionaries, each with info about a report
     all_reports = []
     for project in projects_002:
@@ -178,6 +235,7 @@ def get_reports(projects_002):
         cnv_reports = find_reports(project['id'], 'CNV')
         print(f"{len(cnv_reports)} CNV reports found")
         for cnv_report in cnv_reports:
+            excluded_regions_file = get_cnv_excluded_regions(cnv_report)
             sample_name = "-".join(
                 cnv_report['describe']['name'].split("-", 2)[:2]
             )
@@ -186,17 +244,17 @@ def get_reports(projects_002):
                 'project_id': project['id'],
                 'sample': sample_name,
                 'cnv_file_id': cnv_report['id'],
+                'excluded_regions_id': excluded_regions_file,
                 'type': 'CNV',
             })
-
-        print("")
 
     return all_reports
 
 
-def get_details_in_parallel(list_of_files) -> list:
+def get_details_and_read_excluded_regions_in_parallel(list_of_files) -> list:
     """
-    Call dx.dxFile().get_details() in parallel for given list of files
+    Call get_details() and read in excluded regions in parallel for given list
+    of files
 
     Parameters
     ----------
@@ -237,9 +295,14 @@ def get_details_in_parallel(list_of_files) -> list:
         # If CNV, the variants are in the DX report details under 'variants'
         elif file_type == 'CNV':
             file_id = file_dict['cnv_file_id']
+            excluded_regions_id = file_dict['excluded_regions_id']
             details = dx.DXFile(dxid=file_id, project=project_id).get_details()
+            excluded_regions_df = read_excluded_regions_to_df(
+                excluded_regions_id, project_id
+            )
             included_variants = details.get('variants')
             file_dict['cnv_included_variants'] = included_variants
+            file_dict['excluded_regions_df'] = excluded_regions_df
 
         clinical_indication = details.get('clinical_indication')
         file_dict['clinical_indication'] = clinical_indication
@@ -248,7 +311,7 @@ def get_details_in_parallel(list_of_files) -> list:
 
     results = []
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         concurrent_jobs = {
             executor.submit(_get_details, item): item for item in list_of_files
         }
@@ -266,15 +329,15 @@ def get_details_in_parallel(list_of_files) -> list:
     return results
 
 
-def remove_ignore_files(sample_df, ignore_txt_file):
+def remove_ignore_files(reports_with_details, ignore_txt_file):
     """
     Remove any files (by ID) if they are in the input txt file containing
     files to ignore
 
     Parameters
     ----------
-    sample_df : pd.DataFrame
-        dataframe with all SNV/CNV reports found
+    reports_with_details : list
+        list of dictionaries, each with info on a report
     ignore_txt_file : str
         name of txt file with file IDs to ignore
 
@@ -291,19 +354,18 @@ def remove_ignore_files(sample_df, ignore_txt_file):
     files_ignore = '\n\t'.join([file for file in file_ignore_list])
     print(f"Ignoring following files:\n\t{files_ignore}")
 
-    # Remove rows from df if the file ID is in the SNV file ID column
-    variants_df_snv_files_removed = sample_df[
-        ~sample_df.snv_file_id.isin(file_ignore_list)
+    samples_with_files_removed = [
+        report for report in reports_with_details
+        if not (
+            report.get('cnv_file_id') in file_ignore_list
+            or report.get('snv_file_id') in file_ignore_list
+        )
     ]
-    # Remove rows from df if the file ID is in the CNV file ID column
-    variants_df_all_ignored_removed = variants_df_snv_files_removed[
-        ~variants_df_snv_files_removed.cnv_file_id.isin(file_ignore_list)
-    ]
 
-    return variants_df_all_ignored_removed
+    return samples_with_files_removed
 
 
-def group_by_test_and_add_run_date(reports_df):
+def group_by_sample_and_add_run_date(reports_df):
     """
     Group by run, sample and clinical indication
 
@@ -326,7 +388,9 @@ def group_by_test_and_add_run_date(reports_df):
         'snv_file_id': 'first',
         'snv_included_variants': 'first',
         'cnv_file_id': 'first',
-        'cnv_included_variants': 'first'
+        'cnv_included_variants': 'first',
+        'excluded_regions_id': 'first',
+        'excluded_regions_df': 'first'
     }).reset_index()
 
     # Add run date so later we can work out whether CNV report was released
@@ -397,7 +461,6 @@ def determine_whether_any_report_released(grouped_df, process_change_date):
     # Add column to say whether CNV report was released
     grouped_df['CNV_report_released'] = np.select(conditions, values)
 
-
     # Add extra column to say whether any report was released for the sample
     second_conditions = [
         (
@@ -423,76 +486,43 @@ def determine_whether_any_report_released(grouped_df, process_change_date):
         second_conditions, second_values
     )
 
+    grouped_df['excluded_regions_df'] = (
+        grouped_df['excluded_regions_df'].astype(str)
+    )
+    grouped_df['CNV_excluded_regions'] = np.where(
+        grouped_df['excluded_regions_df'] == "None", "No", "Yes"
+    )
+
     return grouped_df
 
 
-def group_by_report_release(grouped_df):
+def subset_raw_data(raw_data):
     """
-    Group by clinical indication and count how many samples, how many had no
-    report released and how many had at least one report released
+    Subset the raw data to remove columns not needed
 
     Parameters
     ----------
-    grouped_df : pd.DataFrame
-        df with columns 'SNV_report_released', 'CNV_report_released' and
-        'any_report_released'
+    raw_data : pd.DataFrame
+        df of all data
 
     Returns
     -------
-    sorted_any_workbook : pd.DataFrame
-        df with info on how many samples had no report released per clinical
-        indication
+    raw_data_subset :  pd.DataFrame
+        df with only the columns needed
     """
+    # Subset to remove file ID and run date columns
+    raw_data = raw_data[[
+        'run', 'sample', 'clinical_indication', 'type',
+        'snv_included_variants', 'cnv_included_variants',
+        'excluded_regions_df', 'SNV_report_released', 'CNV_report_released',
+        'any_report_released', 'CNV_excluded_regions'
+    ]]
 
-    # Group by clinical indication and count how many samples and of these,
-    # how many had no workbook and how many had at least one workbook released
-    grouped_any_workbook = grouped_df.groupby('clinical_indication').agg(
-        total_samples=('sample', 'size'),
-        no_workbook_released=('any_report_released', lambda x: (x == 'No').sum()),
-        workbook_released=('any_report_released', lambda x: (x == 'Yes').sum())
-    ).reset_index()
-
-    # Sort by total samples and add short R code
-    sorted_any_workbook = grouped_any_workbook.sort_values(
-        by=['total_samples'], ascending=False, ignore_index=True
+    raw_data = raw_data.sort_values(
+        by=['clinical_indication'], ignore_index=True
     )
 
-    return sorted_any_workbook
-
-
-def group_by_any_variants(grouped_df):
-    """
-    Group by clinical indication and count how many had no variants in SNV or
-    CNV or both
-
-    Parameters
-    ----------
-    grouped_df : pd.DataFrame
-        df with columns 'snv_included_variants' and 'cnv_included_variants'
-
-    Returns
-    -------
-    sorted_any_variants : pd.DataFrame
-        df with info on how many samples had no variants in SNV, CNV or both
-        per clinical indication
-    """
-    grouped_df['variants_sum'] = grouped_df[
-        ['snv_included_variants', 'cnv_included_variants']
-    ].sum(axis=1)
-
-    # Group and count how many have 0 SNVs+CNVs and how many have >0 SNVs+CNVs
-    grouped_by_any_variants = grouped_df.groupby('clinical_indication').agg(
-        total_samples=('sample', 'size'),
-        no_variants=('variants_sum', lambda x: (x == 0).sum()),
-        any_variants=('variants_sum', lambda x: (x > 0).sum())
-    ).reset_index()
-
-    # Sort by total samples
-    sorted_any_variants = grouped_by_any_variants.sort_values(
-        by=['total_samples'], ascending=False, ignore_index=True
-    )
-
-    return sorted_any_variants
+    return raw_data
 
 
 def group_and_count_by_workbook_type_release(report_release_df):
@@ -543,16 +573,44 @@ def group_and_count_by_variant_existence_per_type(report_release_df):
     sorted_grouped_by_variant_type : pd.DataFrame
         df with counts of each variant type per clinical indication
     """
+    conditions = [
+        (
+            ((report_release_df['cnv_included_variants'] == 0)
+            | (report_release_df['cnv_included_variants'].isna()))
+            & (report_release_df['CNV_excluded_regions'] == 'No')
+        ),
+        (
+            ((report_release_df['cnv_included_variants'] == 0)
+            | (report_release_df['cnv_included_variants'].isna()))
+            & (report_release_df['CNV_excluded_regions'] == 'Yes')
+        ),
+        (
+            ((report_release_df['cnv_included_variants'] != 0)
+            | (~report_release_df['cnv_included_variants'].isna()))
+            & (report_release_df['CNV_excluded_regions'] == 'No')
+        ),
+        (
+            ((report_release_df['cnv_included_variants'] != 0)
+            | (~report_release_df['cnv_included_variants'].isna()))
+            & (report_release_df['CNV_excluded_regions'] == 'Yes')
+        )
+    ]
+
+    values = [
+        "no_cnvs_no_excluded", "no_cnvs_has_excluded",
+        "has_cnvs_no_excluded", "has_cnvs_has_excluded"
+    ]
+
+    report_release_df['cnv_status'] = np.select(conditions, values)
+
     no_snv_condition = (
         (report_release_df['snv_included_variants'] == 0)
         | (report_release_df['snv_included_variants'].isna())
     )
-    no_cnv_condition = (
-        (report_release_df['cnv_included_variants'] == 0)
-        | (report_release_df['cnv_included_variants'].isna())
-    )
 
-    grouped_by_each_variant_type = report_release_df.groupby('clinical_indication').agg(
+    grouped_by_each_variant_type = report_release_df.groupby(
+        'clinical_indication'
+    ).agg(
         total_samples=('sample', 'size'),
         no_snvs=(
             'snv_included_variants',
@@ -562,13 +620,17 @@ def group_and_count_by_variant_existence_per_type(report_release_df):
             'snv_included_variants',
             lambda x: (~no_snv_condition)[x.index].sum()
         ),
-        no_cnvs=(
-            'cnv_included_variants',
-            lambda x: no_cnv_condition[x.index].sum()
+        no_cnvs_no_excluded=(
+            'cnv_status', lambda x: (x == 'no_cnvs_no_excluded').sum()
         ),
-        has_cnvs=(
-            'cnv_included_variants',
-            lambda x: (~no_cnv_condition)[x.index].sum()
+        no_cnvs_has_excluded=(
+            'cnv_status', lambda x: (x == 'no_cnvs_has_excluded').sum()
+        ),
+        has_cnvs_no_excluded=(
+            'cnv_status', lambda x: (x == 'has_cnvs_no_excluded').sum()
+        ),
+        has_cnvs_has_excluded=(
+            'cnv_status', lambda x: (x == 'has_cnvs_has_excluded').sum()
         ),
     ).reset_index()
 
@@ -579,92 +641,138 @@ def group_and_count_by_variant_existence_per_type(report_release_df):
     return sorted_grouped_by_variant_type
 
 
-def write_out_intermediate_excel(grouped_df_raw):
+def create_df_of_just_excluded_regions(reports_list):
     """
-    Write out the Excel with the raw data
+    Create df of the excluded regions, with one row per excluded region,
+    each associated with a sample tested for a clinical indication
 
     Parameters
     ----------
-    grouped_df_raw : pd.DataFrame
-        pandas df with all info on each test
+    reports_with_ignore_removed : list
+        list of dicts, each with info on a report
+
+    Returns
+    -------
+    excluded_exists_subset : pd.DataFrame
+        df of samples with excluded regions
     """
-    # Subset to remove file ID and run date columns
-    grouped_df_raw = grouped_df_raw[[
-        'run', 'sample', 'clinical_indication', 'type',
-        'snv_included_variants', 'cnv_included_variants',
-        'SNV_report_released', 'CNV_report_released', 'any_report_released'
-    ]]
+    # Create new nested key with the df as dict because it's much easier
+    # to work with
+    for report in reports_list:
+        regions_df = report.get('excluded_regions_df')
+        if regions_df is not None:
+            if not regions_df.empty:
+                regions_dict = regions_df.to_dict('list')
+                report['excluded_regions_dict'] = regions_dict
+            else:
+                report['excluded_regions_dict'] = None
+        else:
+            report['excluded_regions_dict'] = None
 
-    grouped_df = grouped_df_raw.sort_values(
-        by=['clinical_indication'], ignore_index=True
+    # Create df of only excluded regions
+    rows = []
+    for report in reports_list:
+        regions_df = report.get('excluded_regions_df')
+        excluded_regions_dict = report['excluded_regions_dict']
+        nested_df = pd.DataFrame(excluded_regions_dict)
+        nested_df['sample'] = report['sample']
+        nested_df['clinical_indication'] = report['clinical_indication']
+        rows.append(nested_df)
+    result_df = pd.concat(rows, ignore_index=True)
+
+    # Create new column with all info about the excluded region in one cell
+    result_df[['Start', 'End', 'Length', 'Exon']] = result_df[
+        ['Start', 'End', 'Length', 'Exon']
+    ].astype(int)
+    result_df['excluded_region'] = result_df[result_df.columns[2:]].apply(
+        lambda x: ' '.join(x.dropna().astype(str)),
+        axis=1
+    )
+    excluded_exists_subset = result_df[
+        ['sample', 'clinical_indication', 'excluded_region']
+    ]
+
+    return excluded_exists_subset
+
+
+def find_commonly_excluded_regions(excluded_regions_df):
+    """
+    Work out how commonly a region is excluded in each panel
+
+    Parameters
+    ----------
+    excluded_regions_df : pd.DataFrame
+        df of excluded regions, one per row
+
+    Returns
+    -------
+    merged_excluded : pd.DataFrame
+        df with counts of samples with excluded regions per clinical
+        indication and counts of unique regions excluded
+    """
+    # count how many samples total per clinical indication
+    total_samples = excluded_regions_df.groupby(
+        'clinical_indication'
+    )['sample'].nunique().reset_index()
+    total_samples.columns = [
+        'clinical_indication', 'total_samples_with_excluded'
+    ]
+
+    # Count how many times excluded regions occur per panel
+    excluded_counts = excluded_regions_df.groupby(
+        ['clinical_indication', 'excluded_region']
+    ).agg('nunique').reset_index()
+    excluded_counts.columns = [
+        'clinical_indication', 'excluded_region', 'region_excluded_count'
+    ]
+
+    # Merge (because pandas does not seem to work properly with nunique and
+    # doing other aggregations at the same time)
+    merged_excluded = pd.merge(
+        total_samples, excluded_counts, on='clinical_indication', how='outer'
+    )
+    merged_excluded['proportion_of_panel_tests_excluded'] = (
+        merged_excluded['region_excluded_count']
+        / merged_excluded['total_samples_with_excluded']
     )
 
-    writer = pd.ExcelWriter('EBH-3050_raw_data.xlsx')
-    grouped_df.to_excel(
-        writer, sheet_name='all_data', index=False
+    merged_excluded['excluded_in_all_tests_for_panel'] = np.where(
+        merged_excluded['proportion_of_panel_tests_excluded'] == 1,
+        "Yes", "No"
     )
-    # Automatically set column widths to fit content
-    for column in grouped_df:
-        column_length = max(
-            grouped_df[column].astype(str).map(len).max(),
-            len(column)
-        )
-        col_idx = grouped_df.columns.get_loc(column)
-        writer.sheets['all_data'].set_column(
-            col_idx, col_idx, column_length
-        )
 
-    writer.save()
+    merged_excluded = merged_excluded.set_index(
+        ['clinical_indication', 'total_samples_with_excluded']
+    )
 
+    return merged_excluded
 
-def write_out_final_excel(
-        dataframe_1, dataframe_2, sheet_1, sheet_2, outfile_name
-    ):
+def write_out_excel(dataframes_sheets, outfile_name, write_index):
     """
     Write out pandas dfs to sheets of Excel file
 
     Parameters
     ----------
-    dataframe_1 : pd.DataFrame
-        first pandas df to write out
-    dataframe_2: pd.DataFrame
-        second pandas df to write out
-    sheet_1 : str
-        name of first sheet
-    sheet_2 : str
-        name of second sheet
+    dataframes_sheets : list
+        list of tuples with pandas df and sheet name
     outfile_name: str
         name of Excel file to write out
+    write_index : bool
+        whether to write the index
     """
-    writer = pd.ExcelWriter(outfile_name)
-    dataframe_1.to_excel(
-        writer, sheet_name=sheet_1, index=False
-    )
-    # Automatically set column widths to fit content
-    for column in dataframe_1:
-        column_length = max(
-            dataframe_1[column].astype(str).map(len).max(),
-            len(column)
-        )
-        col_idx = dataframe_1.columns.get_loc(column)
-        writer.sheets[sheet_1].set_column(
-            col_idx, col_idx, column_length
-        )
-
-    dataframe_2.to_excel(
-        writer, sheet_name=sheet_2, index=False
-    )
-    for column in dataframe_2:
-        column_length = max(
-            dataframe_2[column].astype(str).map(len).max(),
-            len(column)
-        )
-        col_idx = dataframe_2.columns.get_loc(column)
-        writer.sheets[sheet_2].set_column(
-            col_idx, col_idx, column_length
-        )
-
-    writer.save()
+    with pd.ExcelWriter(outfile_name) as writer:
+        for dataframe, sheet_name in dataframes_sheets:
+            dataframe.to_excel(
+                writer, sheet_name=sheet_name, index=write_index
+            )
+            # Automatically set column widths to fit content
+            for column in dataframe:
+                column_length = max(
+                    dataframe[column].astype(str).map(len).max(),
+                    len(column)
+                )
+                col_idx = dataframe.columns.get_loc(column)
+                writer.sheets[sheet_name].set_column(col_idx, col_idx, column_length)
 
 
 def main():
@@ -679,21 +787,23 @@ def main():
 
     # Add in details of included variants and clinical indication for all
     # reports in parallel
-    reports_with_details = get_details_in_parallel(all_reports)
-
-    # Make df of all reports (multiple rows per sample, one for each report)
-    variants_df = pd.DataFrame(reports_with_details)
+    reports_with_details = get_details_and_read_excluded_regions_in_parallel(
+        all_reports
+    )
 
     # Ignore certain files as they're ad hoc requests (e.g. Sticklers) or
     # reports run for testing of dias_reports_bulk_reanalysis
-    variants_df_all_ignored_removed = remove_ignore_files(
-        variants_df, args.ignore_files
+    reports_with_ignore_removed = remove_ignore_files(
+        reports_with_details, args.ignore_files
     )
+
+    # Make df of all reports (multiple rows per sample, one for each report)
+    variants_df = pd.DataFrame(reports_with_ignore_removed)
 
     # Group by run, sample and clinical indication so we end up with one row
     # per sample (and can see which have SNV+CNV or just SNV)
-    grouped_df = group_by_test_and_add_run_date(
-        variants_df_all_ignored_removed
+    grouped_df = group_by_sample_and_add_run_date(
+        variants_df
     )
 
     # Set conditions for whether CNV report was released based on when the run
@@ -702,26 +812,7 @@ def main():
         grouped_df, args.process_change
     )
 
-    # Write out intermediate Excel with all data
-    write_out_intermediate_excel(report_release_df)
-
-    # Create df grouped by clinical indication with counts of samples and
-    # how many with workbook released
-    sorted_any_workbook = group_by_report_release(report_release_df)
-
-    # Create df grouped by clinical indication with counts of samples and
-    # how many with any variants
-    sorted_any_variants = group_by_any_variants(report_release_df)
-
-    # Write out final Excel with two sheets, grouped by workbook release
-    # and grouped by any variants
-    write_out_final_excel(
-        dataframe_1=sorted_any_workbook,
-        dataframe_2=sorted_any_variants,
-        sheet_1='by_workbook_release',
-        sheet_2='by_variants',
-        outfile_name=args.outfile_name
-    )
+    raw_data_df = subset_raw_data(report_release_df)
 
     # Create df grouped by clinical indication with counts of samples
     # and how many workbooks of each type released
@@ -735,14 +826,30 @@ def main():
         report_release_df
     )
 
-    # Write out another Excel with two sheets, grouped by release of each
+    # Write out Excel with two sheets, grouped by release of each
     # workbook type and grouped by existence of each variant type
-    write_out_final_excel(
-        dataframe_1=report_type_release,
-        dataframe_2=variant_type_release,
-        sheet_1='by_workbook_type_release',
-        sheet_2='by_variant_type',
-        outfile_name='EBH_3050_by_workbook_and_variant_type.xlsx'
+    write_out_excel(
+        dataframes_sheets=[
+            (variant_type_release, "by_variant_type_plus_excluded"),
+            (raw_data_df, "raw_data")
+        ],
+        outfile_name=args.outfile_name,
+        write_index=False
+    )
+
+    excluded_regions_df = create_df_of_just_excluded_regions(
+        reports_with_ignore_removed
+    )
+
+    excluded_regions_count = find_commonly_excluded_regions(
+        excluded_regions_df
+    )
+    write_out_excel(
+        dataframes_sheets=[
+            (excluded_regions_count, 'excluded_regions_count')
+        ],
+        outfile_name='EBH_3050_commonly_excluded_regions.xlsx',
+        write_index=True
     )
 
 
