@@ -5,3 +5,4 @@ venv/
 *.csv
 *.tsv
 *.txt
+__pycache__/
