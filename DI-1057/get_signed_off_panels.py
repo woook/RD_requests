@@ -39,34 +39,30 @@ def main():
             print("Connected to the database successfully.")
             cursor.execute(
                 """
-                SELECT "id", "panel-id" 
+                SELECT "panel-id", "panel-version" 
                 FROM testdirectory."east-panels"
                 WHERE "panel-type-id" = 1
             """
             )
-            panel_ids = cursor.fetchall()
+            panel_data = cursor.fetchall()
 
-    results = []
+            # Fetch latest signoff data for each panel ID
+            for panel_id, current_version in panel_data:
+                _, latest_version, signed_off = fetch_latest_signoff(panel_id)
+                
+                if latest_version and latest_version != current_version:
+                    # Update the panel-version in the database
+                    update_query = f"""
+                    UPDATE testdirectory."east-panels"
+                    SET "panel-version" = '{latest_version}'
+                    WHERE "panel-id" = '{panel_id}'
+                    """
+                    cursor.execute(update_query)
+                    print(f"Updated panel {panel_id} to v_{latest_version}")           
 
-    # Fetch latest signoff data for each panel ID
-    for _, panel_id in panel_ids:
-        name, version, signed_off = fetch_latest_signoff(panel_id)
-        if name and version and signed_off:
-            results.append(
-                {
-                    "PanelID": panel_id,
-                    "Name": name,
-                    "Version": version,
-                    "SignedOffDate": signed_off,
-                }
-            )
-
-    # Convert the list of results to a DataFrame
-    df = pd.DataFrame(results)
-
-    # Save the DataFrame to a TSV file
-    df.to_csv("latest_signoff_panels.tsv", sep="\t", index=False)
-    print("Data has been saved to latest_signoff_panels.tsv")
+            # Commit the changes to the database
+            conn.commit()
+            print("Database has been updated with the latest panel versions.")
 
 
 if __name__ == "__main__":
