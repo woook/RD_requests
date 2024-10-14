@@ -16,6 +16,12 @@ Parses the East-GLH Test Directory spreadsheet, retrieves panel info from the Pa
 3. `compare_dfs.py`:
 Compares the data from the spreadsheet and database, identifying mismatches
 
+4. `add_genes.py`:
+Populates the table, `east-genes`.
+
+5. `validate_east_genes_table.py`:
+Verifies that `east-genes` table has been populated
+
 ### How to Run
 1. Set up credentials: Ensure your database credentials are set in environment variables.
 
