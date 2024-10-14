@@ -1,6 +1,6 @@
 """
-Reads data from East GLH RD TD spreadsheet and processes columns and rows to match data
-from PostgreSQL database (td_sql.csv).
+Reads data from East GLH RD TD spreadsheet and processes columns and rows to 
+match data from PostgreSQL database (td_sql.csv).
 """
 import argparse
 import pandas as pd
@@ -8,8 +8,9 @@ import re
 import requests
 
 # Define the file paths and columns
-FILE = "INTERNAL_EastGLH_Rare and Inherited Disease Test Directory v7 July2024_04.09.2024_V2.xlsx"
-COLS = ['Clinical indication ID', 'Test ID', 'Clinical Indication', 'Target/Genes']
+COLS = [
+    'Clinical indication ID', 'Test ID', 'Clinical Indication', 'Target/Genes'
+]
 TEST_IDS = pd.read_csv("td_sql.csv")["test-id"].tolist()
 
 def extract_panel_id(value):
@@ -29,33 +30,37 @@ def extract_panel_id(value):
 
 def get_panel_info(panel_id):
     """
-    Fetches the panel name and version of a given panel_id from the PanelApp API.
+    Fetches the panel name and latest sign-off version of a given panel_id from
+    the PanelApp API.
 
     Args:
         panel_id (str): The PanelApp ID.
 
     Returns:
-        tuple: A tuple containing (panel_name, panel_version), or (None, None) if the panel_id is not found.
+        tuple: A tuple containing (panel_name, panel_version), or 
+        (None, None) if the panel_id is not found.
     """
     if panel_id is None:
         return None, None
+    
+    url = (
+        f"https://panelapp.genomicsengland.co.uk/api/v1/panels/signedoff/"
+        f"?panel_id={panel_id}"
+    )
 
-    url = f"https://panelapp.genomicsengland.co.uk/api/v1/panels/{panel_id}/"
-
-    try:
-        response = requests.get(url, headers={'accept': 'application/json'})
-        if response.status_code == 200:
-            data = response.json()
-            panel_name = data.get("name")
-            panel_version = data.get("version")
+    response = requests.get(url, headers={'accept': 'application/json'})
+    
+    if response.status_code == 200:
+        results = response.json().get("results")
+        if results:
+            latest_result = results[0]
+            panel_name = latest_result["name"]
+            panel_version = latest_result["version"]
+            
             return panel_name, panel_version
-        else:
-            print(f"Request failed. Status code: {response.status_code}")
-            return None, None
-
-    except requests.RequestException as e:
-        print(f"An error occurred: {e}")
-        return None, None
+    
+    print(f"Request failed for {panel_id}. Status code:{response.status_code}")
+    return None, None
 
 def parse_spreadsheet(file):
     """
@@ -71,7 +76,9 @@ def parse_spreadsheet(file):
     df = df[df["Test ID"].isin(TEST_IDS)]
 
     # Rename cols to match db schema
-    df.columns = ["clinical-indication-id","test-id", "clinical-indication", "Target/Genes"]
+    df.columns = [
+        "clinical-indication-id","test-id","clinical-indication","Target/Genes"
+    ]
 
     df["panel-id"] = df["Target/Genes"].apply(extract_panel_id)
 
@@ -81,7 +88,9 @@ def parse_spreadsheet(file):
     )
 
     # Determine the panel type based on whether the panel_id exists
-    df["panel-type"] = df["panel-id"].apply(lambda x: "PanelApp" if x else "EastGLH")
+    df["panel-type"] = df["panel-id"].apply(
+        lambda x: "PanelApp" if x else "EastGLH"
+    )
 
     # Drop the original "Target/Genes" column
     df.drop(columns=["Target/Genes"], inplace=True)
