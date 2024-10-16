@@ -31,13 +31,13 @@ def perform_sense_checks():
             unique_panel_count = cursor.fetchone()[0]
             print(f"Number of unique east-panel-id: {unique_panel_count}")
 
-            # Check if all panels have at least one gene (should be 38)
-            if unique_panel_count == 38:
-                print("All 38 PanelApp panels have been populated with genes.")
+            # Check if all panels have at least one gene (should be 40)
+            if unique_panel_count == 40:
+                print("All 40 Panels have been populated with genes.")
             else:
                 print(
                     f"Warning: Only {unique_panel_count} panels have been "
-                    "populated with genes (expected 38)."
+                    "populated with genes (expected 40)."
                 )
 
             # Check for any east-panel-id without genes
@@ -47,8 +47,7 @@ def perform_sense_checks():
                 FROM testdirectory."east-panels" p
                 LEFT JOIN testdirectory."east-genes" g 
                 ON p."id" = g."east-panel-id"
-                WHERE g."east-panel-id" IS NULL 
-                AND p."panel-type-id" = 1
+                WHERE g."east-panel-id" IS NULL
             """
             )
             panels_without_genes = cursor.fetchall()
@@ -58,7 +57,7 @@ def perform_sense_checks():
                     f"{panels_without_genes}"
                 )
             else:
-                print("All PanelApp's panels have associated genes.")
+                print("All Panels have associated genes.")
 
             # Check for duplicate (east-panel-id, hgnc-id) pairs
             cursor.execute(
