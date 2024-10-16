@@ -1,5 +1,5 @@
 """
-Retrieves panel IDs from the 'east-panels' table, 
+Retrieves panel IDs from the 'east-panels' table,
 fetches high-confidence genes assocatiared with each panel from PanelApp API,
 and inserts them into the 'east-genes' table using psycopg2.
 """
@@ -28,7 +28,7 @@ def get_high_confidence_genes(panel_id: int, version: str) -> list:
         response = requests.get(url)
         response.raise_for_status()
         panel_data = response.json()
-        
+
         high_confidence_genes = [
             gene["gene_data"]["hgnc_id"]
             for gene in panel_data["genes"]
@@ -45,8 +45,9 @@ def insert_genes_into_db(east_panel_id, hgnc_ids, cursor) -> None:
 
     Args:
         east_panel_id (int): primary key of panel in "east-panels" table
-        hgnc_ids (List[str]): list of hgnc ids 
-        cursor (pyscopg2.Cursor): A database cursor object used to execute SQL queries.
+        hgnc_ids (List[str]): list of hgnc ids
+        cursor (pyscopg2.Cursor): A database cursor object used to execute
+        SQL queries.
     """
     
     for hgnc_id in hgnc_ids:
@@ -60,6 +61,7 @@ def insert_genes_into_db(east_panel_id, hgnc_ids, cursor) -> None:
             )
         except Exception as e:
             print(f"Error inserting panel {east_panel_id}, gene {hgnc_id}: {e}")
+
 
 def main():
     """Entry point

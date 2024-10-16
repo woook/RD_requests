@@ -1,5 +1,5 @@
 """
-Verifies that the 'east-genes' table has been populated and performs sense checks:
+Verifies that the 'east-genes' table has been populated and sense checks:
 - Count of unique east-panel-id should be 38.
 - Each panel has at least one gene.
 - No duplicate (east-panel-id, hgnc-id) pairs.
@@ -45,7 +45,7 @@ def perform_sense_checks():
                 """
                 SELECT p."id", p."panel-id"
                 FROM testdirectory."east-panels" p
-                LEFT JOIN testdirectory."east-genes" g 
+                LEFT JOIN testdirectory."east-genes" g
                 ON p."id" = g."east-panel-id"
                 WHERE g."east-panel-id" IS NULL
             """

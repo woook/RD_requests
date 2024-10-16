@@ -1,5 +1,5 @@
 """
-Reads data from East GLH RD TD spreadsheet and processes columns and rows to 
+Reads data from East GLH RD TD spreadsheet and processes columns and rows to
 match data from PostgreSQL database (td_sql.csv).
 """
 import argparse
@@ -37,28 +37,28 @@ def get_panel_info(panel_id):
         panel_id (str): The PanelApp ID.
 
     Returns:
-        tuple: A tuple containing (panel_name, panel_version), or 
+        tuple: A tuple containing (panel_name, panel_version), or
         (None, None) if the panel_id is not found.
     """
     if panel_id is None:
         return None, None
-    
+
     url = (
         f"https://panelapp.genomicsengland.co.uk/api/v1/panels/signedoff/"
         f"?panel_id={panel_id}"
     )
 
     response = requests.get(url, headers={'accept': 'application/json'})
-    
+
     if response.status_code == 200:
         results = response.json().get("results")
         if results:
             latest_result = results[0]
             panel_name = latest_result["name"]
             panel_version = latest_result["version"]
-            
+ 
             return panel_name, panel_version
-    
+
     print(f"Request failed for {panel_id}. Status code:{response.status_code}")
     return None, None
 
@@ -77,7 +77,10 @@ def parse_spreadsheet(file):
 
     # Rename cols to match db schema
     df.columns = [
-        "clinical-indication-id","test-id","clinical-indication","Target/Genes"
+        "clinical-indication-id",
+        "test-id",
+        "clinical-indication",
+        "Target/Genes"
     ]
 
     df["panel-id"] = df["Target/Genes"].apply(extract_panel_id)

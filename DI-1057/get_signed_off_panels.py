@@ -14,7 +14,10 @@ def fetch_latest_signoff(panel_id):
     Returns:
         tuple: A tuple containing the name, version, and signed_off date.
     """
-    url = f"https://panelapp.genomicsengland.co.uk/api/v1/panels/signedoff/?panel_id={panel_id}"
+    url = (
+        f"https://panelapp.genomicsengland.co.uk/api/v1/panels/signedoff/"
+        f"?panel_id={panel_id}"
+    )
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
@@ -39,7 +42,7 @@ def main():
             print("Connected to the database successfully.")
             cursor.execute(
                 """
-                SELECT "panel-id", "panel-version" 
+                SELECT "panel-id", "panel-version"
                 FROM testdirectory."east-panels"
                 WHERE "panel-type-id" = 1
             """
@@ -49,7 +52,7 @@ def main():
             # Fetch latest signoff data for each panel ID
             for panel_id, current_version in panel_data:
                 _, latest_version, signed_off = fetch_latest_signoff(panel_id)
-                
+
                 if latest_version and latest_version != current_version:
                     # Update the panel-version in the database
                     update_query = f"""
@@ -58,7 +61,7 @@ def main():
                     WHERE "panel-id" = '{panel_id}'
                     """
                     cursor.execute(update_query)
-                    print(f"Updated panel {panel_id} to v_{latest_version}")           
+                    print(f"Updated panel {panel_id} to v_{latest_version}")    
 
             # Commit the changes to the database
             conn.commit()
