@@ -1,6 +1,7 @@
 *.xlsx
 *.xlsx#
 *.html
+*.json
 *.tsv
 *.csv
 *.txt
