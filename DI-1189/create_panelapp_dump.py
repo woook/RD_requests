@@ -343,6 +343,11 @@ def parse_specified_pa_panels(panel_ids=None) -> list:
         parsed_data.append(panel_data)
 
     if panel_ids:
+        unique_panelapp_ids = [panel["external_id"] for panel in parsed_data]
+        for panel_id in panel_ids:
+            if panel_id not in unique_panelapp_ids:
+                print(f"\nWARNING: panel ID {panel_id} not found in PanelApp")
+
         parsed_data = [
             panel for panel in parsed_data if panel["external_id"] in panel_ids
         ]
