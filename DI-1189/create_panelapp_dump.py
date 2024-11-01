@@ -1,6 +1,7 @@
 import argparse
 import json
 import pandas as pd
+import sys
 
 from collections import defaultdict
 from panelapp.Panelapp import Panel
@@ -24,14 +25,20 @@ def parse_args() -> argparse.Namespace:
         "-g",
         "--genepanels",
         type=str,
-        help="Genepanels file to be used to keep required panels (optional)",
+        help=(
+            "Genepanels file to be used to keep only specific panels "
+            "(optional). Required if --extra_panels is given"
+        ),
     )
 
     parser.add_argument(
         "-p",
         "--extra_panels",
         type=str,
-        help="Extra panel IDs to retain (additional to genepanels file)",
+        help=(
+            "Extra panel IDs to retain (optional, requires --genepanels to "
+            "be given)"
+        ),
     )
 
     parser.add_argument(
@@ -704,10 +711,18 @@ def main():
     if args.genepanels:
         genepanels_df = read_in_genepanels(args.genepanels)
         panel_ids_to_keep = get_unique_required_panel_ids(genepanels_df)
+
     if args.extra_panels:
-        panel_ids_to_keep = add_additional_panel_ids(
-            panel_ids_to_keep, args.extra_panels
-        )
+        if not args.genepanels:
+            print(
+                "Please provide a genepanels file with --genepanels if you"
+                " want to include extra panels with --extra_panels. Exiting"
+            )
+            sys.exit(1)
+        else:
+            panel_ids_to_keep = add_additional_panel_ids(
+                panel_ids_to_keep, args.extra_panels
+            )
 
     # Get all signed off panels as a list of dicts, one per panel
     all_required_panels = parse_specified_pa_panels(panel_ids_to_keep)

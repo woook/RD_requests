@@ -6,7 +6,7 @@ This script is used to create a PanelApp JSON file which is used as an input to 
 ### Inputs
 The script `create_panelapp_json.py` takes inputs:
 - `--genepanels (str)`: genepanels file (optional)
-- `--extra_panels (str)`: Any extra panel IDs to retain, comma separated (optional)
+- `--extra_panels (str)`: Any extra panel IDs to retain, comma separated (optional, requires `--genepanels` to be given)
 - `--outfile_name (str)`: Name of output PanelApp JSON file
 
 ### Running
