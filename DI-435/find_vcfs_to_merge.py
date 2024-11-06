@@ -220,7 +220,7 @@ def get_failed_samples(qc_status_df):
     Returns
     -------
     fail_sample_names : list
-        list of sample names which have failed
+        list of names of samples which have failed
     """
     df_fail = qc_status_df.loc[
         qc_status_df['QC_status'].str.upper() == 'FAIL'
@@ -241,12 +241,14 @@ def get_sample_types(projects):
     Parameters
     ----------
     projects : list
-        _description_
+        list of dicts, each representing a DNAnexus project
 
     Returns
     -------
-    _type_
-        _description_
+    all_non_validation_sample : list
+        list of dicts, each with info about a non-validation sample
+    all_validation_sample : list
+        list of dicts, each with info about a validation sample
     """
     all_validation_sample = []
     all_non_validation_sample = []
