@@ -85,7 +85,7 @@ def find_projects(project_name, start=None, end=None):
 
 def find_data(file_name, project_id):
     """
-    Find files in DNAnexus project
+    Find files in DNAnexus project by name
 
     Parameters
     ----------
@@ -168,7 +168,7 @@ def read_in_qc_file_to_df(qc_file, b37_proj):
 
 def get_qc_files(b38_projects):
     """
-    Find QC status files and create list of dataframes for each
+    Find QC status files and read in to create list of data frames
 
     Parameters
     ----------
@@ -177,8 +177,8 @@ def get_qc_files(b38_projects):
 
     Returns
     -------
-    qc_file_dfs : list
-        list of dfs, each representing a QC status file
+    merged_qc_df : pd.DataFrame
+        a dataframe which is a merge of all QC status files
     """
     qc_file_dfs = []
     for b38_proj in b38_projects:
@@ -204,8 +204,9 @@ def get_qc_files(b38_projects):
             qc_file_dfs.append(qc_df)
 
     print(f"Read in {len(qc_file_dfs)} QC status files")
+    merged_qc_df = pd.concat(qc_file_dfs)
 
-    return qc_file_dfs
+    return merged_qc_df
 
 
 def get_failed_samples(qc_status_df):
@@ -245,13 +246,13 @@ def get_sample_types(projects):
 
     Returns
     -------
-    all_non_validation_sample : list
+    all_non_validation_samples : list
         list of dicts, each with info about a non-validation sample
-    all_validation_sample : list
+    all_validation_samples : list
         list of dicts, each with info about a validation sample
     """
-    all_validation_sample = []
-    all_non_validation_sample = []
+    all_validation_samples = []
+    all_non_validation_samples = []
 
     for project in projects:
         vcf_files = find_data(
@@ -272,7 +273,7 @@ def get_sample_types(projects):
                 re.match(r"^[G][M]\d{7}$", sample_id)
                 or re.match(r"^\d{5}[R]\d{4}$", sample_id)
             ):
-                all_non_validation_sample.append(
+                all_non_validation_samples.append(
                     {
                         "sample": instrument_id + "-" + sample_id,
                         "project": project["describe"]["id"],
@@ -284,7 +285,7 @@ def get_sample_types(projects):
                 )
 
             else:
-                all_validation_sample.append(
+                all_validation_samples.append(
                     {
                         "sample": instrument_id + "-" + sample_id,
                         "project": project["describe"]["id"],
@@ -298,36 +299,31 @@ def get_sample_types(projects):
         ):
             print("Sample duplication in the same run", project['id'])
 
-    return all_non_validation_sample, all_validation_sample
+    return all_non_validation_samples, all_validation_samples
 
 
 def main():
     args = parse_args()
-    # Find projects for our assay
+
     b38_projects = find_projects(args.assay, args.start, args.end)
-    print("Number of projects found:", len(b38_projects))
     projects_to_print='\n\t'.join([
         f"{x['describe']['name']} - {x['id']}" for x in b38_projects
     ])
-    print(f"\nProjects:\n\t{projects_to_print}")
+    print(f"\n{len(b38_projects)} projects found:\n\t{projects_to_print}")
 
-    # Get QC status files and read them in
-    qc_files = get_qc_files(b38_projects)
-    merged_qc_df = pd.concat(qc_files)
+    # Get QC status files from b37 projects and read them in
+    merged_qc_file_df = get_qc_files(b38_projects)
 
-    # Check failed samples from QC status reports
-    fail_sample_names = get_failed_samples(merged_qc_df)
+    # Get any failed samples from QC status reports
+    fail_sample_names = get_failed_samples(merged_qc_file_df)
     print("\nFailed samples:")
     print("\n".join(sample for sample in fail_sample_names))
 
-    # Get validation and duplicated samples in 38 folders
-    (
-        all_non_validation_sample,
-        validation_samples,
-    ) = get_sample_types(b38_projects)
+    # Get validation and duplicated samples
+    non_validation_samples, validation_samples = get_sample_types(b38_projects)
 
-    # Check duplicated samples from all CEN38 folders
-    sample_names = [item['sample'] for item in all_non_validation_sample]
+    # Check duplicated samples from all b38 folders
+    sample_names = [item['sample'] for item in non_validation_samples]
     duplicated_samples = [
         item for item, count in Counter(sample_names).items()
         if count > 1
@@ -335,13 +331,12 @@ def main():
     print("\nDuplicated_samples:")
     print("\n".join(sample for sample in duplicated_samples))
 
-    # Create df
+    # Create dfs
     df_validation_samples = pd.DataFrame(validation_samples)
-    df_all_non_validation_samples = pd.DataFrame(all_non_validation_sample)
-    # Write out non-validation samples to CSV
+    df_all_non_validation_samples = pd.DataFrame(non_validation_samples)
     df_validation_samples.to_csv("validation_samples.csv", index=False)
 
-    # Drop the duplicated samples and keep once (8 samples are duplicated)
+    # Drop the duplicated samples and keep once
     df_non_duplicated = df_all_non_validation_samples.drop_duplicates(
         subset=["sample"], keep="last"
     )
@@ -354,7 +349,7 @@ def main():
         "found"
     )
 
-    # Get file list to merge if they are not failed samples (14 failed samples)
+    # Get list of non-failed non-validation samples to merge
     print("Removing failed samples")
     df_file_to_merge = df_non_duplicated[
         ~df_non_duplicated['sample'].isin(fail_sample_names)
@@ -362,14 +357,14 @@ def main():
     df_file_to_merge.to_csv(args.outfile_name, sep="\t", header=False)
     print("Number of final VCF files to merge:", len(df_file_to_merge))
 
-    # Counter check
-    for i in fail_sample_names:
-        if i in list(df_file_to_merge["sample"]):
-            print("Failed file found")
+    # Simple check we don't have any failed or duplicated samples left
+    for fail_sample in fail_sample_names:
+        if fail_sample in list(df_file_to_merge["sample"]):
+            print(f"Failed file found: {fail_sample}")
 
-    for i in duplicated_samples:
-        if i in list(df_file_to_merge["sample"]):
-            print('Duplicated sample found')
+    for dup_sample in duplicated_samples:
+        if dup_sample in list(df_file_to_merge["sample"]):
+            print(f"Duplicated sample found: {dup_sample}")
 
 
 if __name__ == '__main__':
