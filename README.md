@@ -8,6 +8,7 @@ Repository for code related to small tasks for supporting the RD service.
 | [DI-1057] | Validate East GLH RD Test Directory hosted on AWS RDS
 | [DI-1094] | CEN/WES GRCh38 egg_sex_check thresholds - August 2024
 | [DI-1189] | Create new PanelApp JSON file
+| [DI-435] | Find and merge VCFs for creation of a GRCh38 POP AF VCF
 
 
 [EBH-3050]: https://cuhbioinformatics.atlassian.net/browse/EBH-3050
@@ -15,3 +16,4 @@ Repository for code related to small tasks for supporting the RD service.
 [DI-1057]: https://cuhbioinformatics.atlassian.net/browse/DI-1057
 [DI-1094]: https://cuhbioinformatics.atlassian.net/browse/DI-1094
 [DI-1189]: https://cuhbioinformatics.atlassian.net/browse/DI-1189
+[DI-435]: https://cuhbioinformatics.atlassian.net/browse/DI-435

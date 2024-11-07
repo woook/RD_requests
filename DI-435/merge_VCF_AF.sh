@@ -1,7 +1,14 @@
+#!/bin/bash
+# Script for merging VCF files and adding AF tag
+#
+# Inputs:
+#   $1 -> input file with VCF files to merge
+#   $2 -> DNAnexus job ID for cloud workstation
+#   $3 -> Reference genome file
+
 input_file=$1
 job=$2
 genome=$3
-merge_file_name=$4
 project_file=$(awk -F ' ' '{print $3":"$4}' $input_file)
 to_download=($project_file)
 
