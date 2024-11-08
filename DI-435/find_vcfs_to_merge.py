@@ -2,8 +2,10 @@ import argparse
 import dxpy
 import pandas as pd
 import re
+import sys
 
 from collections import Counter
+from time import sleep
 
 
 def parse_args() -> argparse.Namespace:
@@ -113,7 +115,7 @@ def find_data(file_name, project_id):
     return files
 
 
-def read_in_qc_file_to_df(qc_file, b37_proj):
+def read_in_qc_file_to_df(qc_file, b37_proj_id):
     """
     Read in QC status file to a pandas dataframe
 
@@ -130,41 +132,31 @@ def read_in_qc_file_to_df(qc_file, b37_proj):
         the QC status file read in as a dataframe
     """
     file = dxpy.open_dxfile(
-        qc_file["id"], project=b37_proj["id"], mode='rb'
+        qc_file["id"], project=b37_proj_id, mode='rb'
     )
+
+    file_contents = file.read()
+    params = {
+        "engine": "openpyxl",
+        "usecols": range(8),
+        "names": [
+            "Sample",
+            "M Reads Mapped",
+            "Contamination (S)",
+            "% Target Bases 20X",
+            "% Aligned",
+            "Insert Size",
+            "QC_status",
+            "Reason",
+        ],
+    }
     try:
-        file_contents = file.read()
-        params = {
-            "engine": "openpyxl",
-            "usecols": range(8),
-            "names": [
-                "Sample",
-                "M Reads Mapped",
-                "Contamination (S)",
-                "% Target Bases 20X",
-                "% Aligned",
-                "Insert Size",
-                "QC_status",
-                "Reason",
-            ],
-        }
-        try:
-            qc_df = pd.read_excel(file_contents, **params)
-        # One QC status file weirdly has two sheets so read in from the second
-        except ValueError:
-            qc_df = pd.read_excel(
-                file_contents, sheet_name="Sheet2", **params
-            )
-    except dxpy.exceptions.InvalidState as e:
-        print(
-            f"Trying to access {qc_file['id']} {e}"
-            "\nNow requesting unarchiving"
+        qc_df = pd.read_excel(file_contents, **params)
+    # One QC status file weirdly has two sheets so read in from the second
+    except ValueError:
+        qc_df = pd.read_excel(
+            file_contents, sheet_name="Sheet2", **params
         )
-        file_object = dxpy.DXFile(
-            qc_file["id"], project=b37_proj["id"]
-        )
-        file_object.unarchive()
-        return
 
     return qc_df
 
@@ -180,10 +172,10 @@ def get_qc_files(b38_projects):
 
     Returns
     -------
-    merged_qc_df : pd.DataFrame
-        a dataframe which is a merge of all QC status files
+    all_qc_files : list
+        list of dicts, each representing a QC status file in DX
     """
-    qc_file_dfs = []
+    all_qc_files = []
     for b38_proj in b38_projects:
         folder_002 = (
             b38_proj["describe"]["name"]
@@ -205,8 +197,60 @@ def get_qc_files(b38_projects):
                 )
             else:
                 qc_file = qc_files[0]
-            qc_df = read_in_qc_file_to_df(qc_file, b37_proj)
-            qc_file_dfs.append(qc_df)
+            all_qc_files.append(qc_file)
+
+    return all_qc_files
+
+
+def unarchive_qc_status_files(all_qc_files):
+    """
+    Unarchive any QC status files that are not live
+
+    Parameters
+    ----------
+    all_qc_files : list
+        list of dicts, each representing a QC status file in DX
+    """
+    non_live_files = [
+        qc_file for qc_file in all_qc_files
+        if qc_file['describe']['archivalState'] != 'live'
+    ]
+
+    if non_live_files:
+        for non_live_file in non_live_files:
+            print(
+                "Requesting unarchiving for QC status file "
+                f"{non_live_file['id']}"
+            )
+            file_object = dxpy.DXFile(
+                non_live_file["id"], project=non_live_file["project"]
+            )
+            file_object.unarchive()
+            sleep(5)
+        print(
+            "Exiting now. Please re-run once QC status files are unarchived"
+        )
+        sys.exit()
+
+
+def read_in_qc_files_to_df(all_qc_files):
+    """
+    Read in all QC status files to a single dataframe
+
+    Parameters
+    ----------
+    all_qc_files : list
+        list of dicts, each representing a QC status file in DX
+
+    Returns
+    -------
+    merged_qc_df : pd.DataFrame
+        a single pandas df with all QC status files merged
+    """
+    qc_file_dfs = []
+    for qc_file in all_qc_files:
+        qc_df = read_in_qc_file_to_df(qc_file, qc_file["project"])
+        qc_file_dfs.append(qc_df)
 
     print(f"Read in {len(qc_file_dfs)} QC status files")
     merged_qc_df = pd.concat(qc_file_dfs)
@@ -317,7 +361,9 @@ def main():
     print(f"\n{len(b38_projects)} projects found:\n\t{projects_to_print}")
 
     # Get QC status files from b37 projects and read them in
-    merged_qc_file_df = get_qc_files(b38_projects)
+    all_qc_files = get_qc_files(b38_projects)
+    unarchive_qc_status_files(all_qc_files)
+    merged_qc_file_df = read_in_qc_files_to_df(all_qc_files)
 
     # Get any failed samples from QC status reports
     fail_sample_names = get_failed_samples(merged_qc_file_df)
