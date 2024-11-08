@@ -16,7 +16,10 @@ def parse_args() -> argparse.Namespace:
         Namespace of passed command line argument inputs
     """
     parser = argparse.ArgumentParser(
-        description="Information required to find CEN VCFs"
+        description=(
+            "Information required to find VCFs in DNAnexus for creation of a "
+            "pop AF VCF for a specific assay"
+        )
     )
 
     parser.add_argument(
@@ -43,10 +46,10 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "-o",
-        "--outfile_name",
+        "--outfile_prefix",
         type=str,
         required=True,
-        help="Name of the output file",
+        help="Prefix to name the output file",
     )
 
     return parser.parse_args()
@@ -197,7 +200,9 @@ def get_qc_files(b38_projects):
                     f"\n{len(qc_files)} QC files found in {b37_proj['id']}. "
                     "Taking latest QC status file"
                 )
-                qc_file = max(qc_files, key=lambda x:x['describe']['created'])
+                qc_file = max(
+                    qc_files, key=lambda x: x['describe']['created']
+                )
             else:
                 qc_file = qc_files[0]
             qc_df = read_in_qc_file_to_df(qc_file, b37_proj)
@@ -306,7 +311,7 @@ def main():
     args = parse_args()
 
     b38_projects = find_projects(args.assay, args.start, args.end)
-    projects_to_print='\n\t'.join([
+    projects_to_print = '\n\t'.join([
         f"{x['describe']['name']} - {x['id']}" for x in b38_projects
     ])
     print(f"\n{len(b38_projects)} projects found:\n\t{projects_to_print}")
@@ -334,7 +339,9 @@ def main():
     # Create dfs
     df_validation_samples = pd.DataFrame(validation_samples)
     df_all_non_validation_samples = pd.DataFrame(non_validation_samples)
-    df_validation_samples.to_csv("validation_samples.csv", index=False)
+    df_validation_samples.to_csv(
+        f"{args.outfile_prefix}_validation_samples.csv", index=False
+    )
 
     # Drop the duplicated samples and keep once
     df_non_duplicated = df_all_non_validation_samples.drop_duplicates(
@@ -354,7 +361,9 @@ def main():
     df_file_to_merge = df_non_duplicated[
         ~df_non_duplicated['sample'].isin(fail_sample_names)
     ]
-    df_file_to_merge.to_csv(args.outfile_name, sep="\t", header=False)
+    df_file_to_merge.to_csv(
+        f"{args.outfile_prefix}_files_to_merge.txt", sep="\t", header=False
+    )
     print("Number of final VCF files to merge:", len(df_file_to_merge))
 
     # Simple check we don't have any failed or duplicated samples left

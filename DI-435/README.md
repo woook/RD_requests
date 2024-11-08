@@ -6,16 +6,16 @@ This folder holds code to create an internal GRCh38 POP AF VCF based for [EBH-43
 ### Python script to find VCFs
 The Python script `find_vcfs_to_merge.py` takes inputs:
 - `-a --assay`: The project prefix to look for in DNAnexus, e.g. `"*CEN38"`
-- `-o --outfile_name`: What to name the output TSV file which lists VCF files to merge
+- `-o --outfile_prefix`: What to name the output TSV file which lists VCF files to merge
 - `-s --start (optional)`: A date used to find DNAnexus projects created after
 - `-e --end (optional)`: A date used to find DNAnexus projects created before
 
 Example Python script command:
-`python3 find_vcfs_to_merge.py --assay "*CEN38" --end 2024-05-03 --outfile_name CEN38_vcf_to_merge.txt`
+`python3 find_vcfs_to_merge.py --assay "*CEN38" --end 2024-05-03 --outfile_prefix CEN38`
 
 Output:
-- A TSV listing the VCF files for all non-validation samples to merge (named by `--outfile_name`)
-- A CSV of all validation samples found (`validation_samples.csv`)
+- A TSV listing the VCF files for all non-validation samples to merge (named by `{outfile_prefix}_files_to_merge.txt`)
+- A CSV of all validation samples found (`{outfile_prefix}_validation_samples.csv`)
 
 How the script works:
 1. Finds all DNAnexus projects with suffix `--assay` and between `--start` and `--end` dates (if provided).
@@ -23,7 +23,7 @@ How the script works:
 3. Finds all raw VCFs in each of the DNAnexus projects.
 4. Splits these VCFs into a list of validation (including control) samples and non-validation samples based on naming conventions
 5. Removes any samples which are duplicates or any which failed QC at any time based on information within the QC status files.
-6. Creates a final list of all VCFs to merge and writes this out to `--outfile_name`.
+6. Creates a final list of all VCFs to merge and writes this out to file with`--outfile_prefix`.
 
 ### Bash script to merge VCFs
 The bash script is run in a DNAnexus cloud workstation and requires positional inputs of:
