@@ -18,7 +18,7 @@ def fetch_latest_signoff(panel_id):
         f"https://panelapp.genomicsengland.co.uk/api/v1/panels/signedoff/"
         f"?panel_id={panel_id}"
     )
-    response = requests.get(url)
+    response = requests.get(url, timeout=10)
     if response.status_code == 200:
         data = response.json()
         if data["results"]:
